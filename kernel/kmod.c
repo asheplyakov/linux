@@ -76,7 +76,7 @@ static int call_modprobe(char *module_name, int wait)
 		NULL
 	};
 
-	char **argv = kmalloc(sizeof(char *[5]), GFP_KERNEL);
+	char **argv = kmalloc(sizeof(char *[6]), GFP_KERNEL);
 	if (!argv)
 		goto out;
 
@@ -86,9 +86,10 @@ static int call_modprobe(char *module_name, int wait)
 
 	argv[0] = modprobe_path;
 	argv[1] = "-q";
-	argv[2] = "--";
-	argv[3] = module_name;	/* check free_modprobe_argv() */
-	argv[4] = NULL;
+	argv[2] = "-b";
+	argv[3] = "--";
+	argv[4] = module_name;	/* check free_modprobe_argv() */
+	argv[5] = NULL;
 
 	info = call_usermodehelper_setup(modprobe_path, argv, envp, GFP_KERNEL,
 					 NULL, free_modprobe_argv, NULL);
