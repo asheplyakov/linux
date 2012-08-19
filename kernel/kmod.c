@@ -62,7 +62,7 @@ char modprobe_path[KMOD_PATH_LEN] = CONFIG_MODPROBE_PATH;
 
 static void free_modprobe_argv(struct subprocess_info *info)
 {
-	kfree(info->argv[3]); /* check call_modprobe() */
+	kfree(info->argv[4]); /* check call_modprobe() */
 	kfree(info->argv);
 }
 
