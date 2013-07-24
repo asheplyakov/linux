@@ -992,6 +992,20 @@ int netlbl_sock_setattr(struct sock *sk,
 			ret_val = -EDESTADDRREQ;
 			break;
 		case NETLBL_NLTYPE_CIPSOV4:
+			/* Our target is skipping marking packets with s0.
+			 * If 'map' command doesn't have specified 'address' and 'domain'
+			 * then netlabel takes 'default' rule.
+			 * Default rule is to mark packets corresponding to socket IP option.
+			 * Socket has IP option. Linux's network subsystem automatically assigns
+			 * for any packets socket's IP option.
+			 */
+			if (!netlbl_mgmt_s0_flg()
+					&& secattr->flags & NETLBL_SECATTR_MLS_LVL
+					&& !(secattr->flags & NETLBL_SECATTR_MLS_CAT)
+					&& secattr->attr.mls.lvl == 0) {
+				ret_val = 0;
+				break;
+			}
 			ret_val = cipso_v4_sock_setattr(sk,
 							dom_entry->def.cipso,
 							secattr);
@@ -1122,6 +1136,23 @@ int netlbl_conn_setattr(struct sock *sk,
 		}
 		switch (entry->type) {
 		case NETLBL_NLTYPE_CIPSOV4:
+			/* Our target is skipping marking packets with s0.
+			 * If 'map' command doesn't have specified 'address' and 'domain'
+			 * then netlabel takes 'default' rule.
+			 * Default rule is to mark packets corresponding to socket IP option.
+			 * Socket has IP option. Linux's network subsystem automatically assigns
+			 * for any packets socket's IP option.
+			 */
+			if (!netlbl_mgmt_s0_flg()
+					&& secattr->flags & NETLBL_SECATTR_MLS_LVL
+					&& !(secattr->flags & NETLBL_SECATTR_MLS_CAT)
+					&& secattr->attr.mls.lvl == 0) {
+				/* just delete the protocols we support for right now
+				 * but we could remove other protocols if needed */
+				cipso_v4_sock_delattr(sk);
+				ret_val = 0;
+				break;
+			}
 			ret_val = cipso_v4_sock_setattr(sk,
 							entry->cipso, secattr);
 			break;
@@ -1197,6 +1228,23 @@ int netlbl_req_setattr(struct request_sock *req,
 		}
 		switch (entry->type) {
 		case NETLBL_NLTYPE_CIPSOV4:
+			/* Our target is skipping marking packets with s0.
+			 * If 'map' command doesn't have specified 'address' and 'domain'
+			 * then netlabel takes 'default' rule.
+			 * Default rule is to mark packets corresponding to socket IP option.
+			 * Socket has IP option. Linux's network subsystem automatically assigns
+			 * for any packets socket's IP option.
+			 */
+			if (!netlbl_mgmt_s0_flg()
+					&& secattr->flags & NETLBL_SECATTR_MLS_LVL
+					&& !(secattr->flags & NETLBL_SECATTR_MLS_CAT)
+					&& secattr->attr.mls.lvl == 0) {
+				/* just delete the protocols we support for right now
+				 * but we could remove other protocols if needed */
+				cipso_v4_req_delattr(req);
+				ret_val = 0;
+				break;
+			}
 			ret_val = cipso_v4_req_setattr(req,
 						       entry->cipso, secattr);
 			break;
@@ -1295,6 +1343,19 @@ int netlbl_skbuff_setattr(struct sk_buff *skb,
 		}
 		switch (entry->type) {
 		case NETLBL_NLTYPE_CIPSOV4:
+				/* Our target is skipping marking packets with s0.
+				 * We can't change function netlbl_domhsh_getentry_af4,
+				 * due it is used in other places. Thus, let's place code
+				 * just right here. */
+				if (!netlbl_mgmt_s0_flg()
+						&& secattr->flags & NETLBL_SECATTR_MLS_LVL
+						&& !(secattr->flags & NETLBL_SECATTR_MLS_CAT)
+						&& secattr->attr.mls.lvl == 0) {
+					/* just delete the protocols we support for right now
+					 * but we could remove other protocols if needed */
+					ret_val = cipso_v4_skbuff_delattr(skb);
+					break;
+				}
 			ret_val = cipso_v4_skbuff_setattr(skb, entry->cipso,
 							  secattr);
 			break;
