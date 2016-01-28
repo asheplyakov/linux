@@ -1833,6 +1833,17 @@ static struct ctl_table kern_table[] = {
 		.extra1         = SYSCTL_ZERO,
 		.extra2         = SYSCTL_ONE,
 	},
+#ifdef CONFIG_USER_NS
+       {
+               .procname       = "userns_restrict",
+               .data           = &sysctl_userns_restrict,
+               .maxlen         = sizeof(int),
+               .mode           = 0644,
+               .proc_handler   = proc_dointvec_minmax,
+               .extra1         = SYSCTL_ZERO,
+               .extra2         = SYSCTL_ONE,
+       },
+#endif
 	{
 		.procname	= "ngroups_max",
 		.data		= (void *)&ngroups_max,
