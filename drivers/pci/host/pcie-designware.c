@@ -518,7 +518,7 @@ int dw_pcie_host_init(struct pcie_port *pp)
 {
 	struct device_node *np = pp->dev->of_node;
 	struct platform_device *pdev = to_platform_device(pp->dev);
-	struct pci_bus *bus, *child;
+	struct pci_bus *child;
 	struct resource *cfg_res;
 	int i, ret;
 	LIST_HEAD(res);
@@ -642,14 +642,14 @@ int dw_pcie_host_init(struct pcie_port *pp)
 
 	pp->root_bus_nr = pp->busn->start;
 	if (IS_ENABLED(CONFIG_PCI_MSI)) {
-		bus = pci_scan_root_bus_msi(pp->dev, pp->root_bus_nr,
+		pp->root_bus = pci_scan_root_bus_msi(pp->dev, pp->root_bus_nr,
 					    &dw_pcie_ops, pp, &res,
 					    &dw_pcie_msi_chip);
 		dw_pcie_msi_chip.dev = pp->dev;
 	} else
-		bus = pci_scan_root_bus(pp->dev, pp->root_bus_nr, &dw_pcie_ops,
+		pp->root_bus = pci_scan_root_bus(pp->dev, pp->root_bus_nr, &dw_pcie_ops,
 					pp, &res);
-	if (!bus) {
+	if (!pp->root_bus) {
 		ret = -ENOMEM;
 		goto error;
 	}
@@ -662,13 +662,13 @@ int dw_pcie_host_init(struct pcie_port *pp)
 	pci_fixup_irqs(pci_common_swizzle, of_irq_parse_and_map_pci);
 #endif
 
-	pci_bus_size_bridges(bus);
-	pci_bus_assign_resources(bus);
+	pci_bus_size_bridges(pp->root_bus);
+	pci_bus_assign_resources(pp->root_bus);
 
-	list_for_each_entry(child, &bus->children, node)
+	list_for_each_entry(child, &pp->root_bus->children, node)
 		pcie_bus_configure_settings(child);
 
-	pci_bus_add_devices(bus);
+	pci_bus_add_devices(pp->root_bus);
 	return 0;
 
 error:
