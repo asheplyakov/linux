@@ -1822,7 +1822,7 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
 #if CONFIG_MIPS_BAIKAL
 /* Temporary fix for Baikal CPU branch, TODO ... */
 #warning temporary fix: user_msghdr * & user_msghdr->msg_iov * are checked to be not null
-	if (!umsg || !umsg->msg_iov)
+	if (!umsg || (!umsg->msg_iov && !umsg->msg_control))
 		return -EFAULT;
 #endif
 
