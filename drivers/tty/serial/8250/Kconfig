@@ -378,3 +378,18 @@ config SERIAL_8250_MID
 	  Selecting this option will enable handling of the extra features
 	  present on the UART found on Intel Medfield SOC and various other
 	  Intel platforms.
+
+config SERIAL_8250_AX99100
+	tristate "Support for Asix AX99100 PCI-Serial Ports"
+	depends on SERIAL_8250 && PCI
+	help
+	  Enable support of PCI-Serial functions of Asix AX99100 controller.
+
+config SERIAL_8250_AX99100_GPIO
+	bool "GPIO-interface support for AX99100"
+	depends on SERIAL_8250_AX99100 && GPIOLIB
+	select GPIOLIB_IRQCHIP
+	help
+	  Say yes here to enable the GPIO-interface of Asix AX99100 PCI-SP
+	  controller. There can be from 8 to 17 GPIOs available depending on
+	  the CHIP_MODE device setting.

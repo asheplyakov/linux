@@ -26,11 +26,15 @@ struct gpiomux {
 
 static void i2c_mux_gpio_set(const struct gpiomux *mux, unsigned val)
 {
-	int i;
+	int i, state;
 
-	for (i = 0; i < mux->data.n_gpios; i++)
-		gpio_set_value_cansleep(mux->gpio_base + mux->data.gpios[i],
-					val & (1 << i));
+	for (i = 0; i < mux->data.n_gpios; i++) {
+		state = val & (1 << i);
+		if (mux->data.flags[i] & OF_GPIO_ACTIVE_LOW)
+			state = !state;
+
+		gpio_set_value_cansleep(mux->gpio_base + mux->data.gpios[i], state);
+	}
 }
 
 static int i2c_mux_gpio_select(struct i2c_adapter *adap, void *data, u32 chan)
@@ -64,7 +68,7 @@ static int i2c_mux_gpio_probe_dt(struct gpiomux *mux,
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *adapter_np, *child;
 	struct i2c_adapter *adapter;
-	unsigned *values, *gpios;
+	unsigned *values, *gpios, *flags;
 	int i = 0, ret;
 
 	if (!np)
@@ -110,7 +114,9 @@ static int i2c_mux_gpio_probe_dt(struct gpiomux *mux,
 
 	gpios = devm_kzalloc(&pdev->dev,
 			     sizeof(*mux->data.gpios) * mux->data.n_gpios, GFP_KERNEL);
-	if (!gpios) {
+	flags = devm_kzalloc(&pdev->dev,
+			     sizeof(*mux->data.flags) * mux->data.n_gpios, GFP_KERNEL);
+	if (!gpios || !flags) {
 		dev_err(&pdev->dev, "Cannot allocate gpios array");
 		return -ENOMEM;
 	}
@@ -120,9 +126,14 @@ static int i2c_mux_gpio_probe_dt(struct gpiomux *mux,
 		if (ret < 0)
 			return ret;
 		gpios[i] = ret;
+
+		ret = of_get_named_gpio_flags(np, "mux-gpios", i, &flags[i]);
+		if (ret < 0)
+			return ret;
 	}
 
 	mux->data.gpios = gpios;
+	mux->data.flags = flags;
 
 	return 0;
 }
@@ -140,7 +151,7 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	struct i2c_adapter *parent;
 	int (*deselect) (struct i2c_adapter *, void *, u32);
 	unsigned initial_state, gpio_base;
-	int i, ret;
+	int i, ret, val;
 
 	mux = devm_kzalloc(&pdev->dev, sizeof(*mux), GFP_KERNEL);
 	if (!mux) {
@@ -208,8 +219,11 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 			goto err_request_gpio;
 		}
 
-		ret = gpio_direction_output(gpio_base + mux->data.gpios[i],
-					    initial_state & (1 << i));
+		val = initial_state & (1 << i);
+		if (mux->data.flags[i] & OF_GPIO_ACTIVE_LOW)
+			val = !val;
+
+		ret = gpio_direction_output(gpio_base + mux->data.gpios[i], val);
 		if (ret) {
 			dev_err(&pdev->dev,
 				"Failed to set direction of GPIO %d to output\n",

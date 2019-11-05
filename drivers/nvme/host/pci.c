@@ -2690,6 +2690,9 @@ static int nvme_pci_enable(struct nvme_dev *dev)
 	if (pci_enable_device_mem(pdev))
 		return result;
 
+	if (pdev->irq == 0xff)
+		pdev->irq = 0;
+
 	dev->entry[0].vector = pdev->irq;
 	pci_set_master(pdev);
 

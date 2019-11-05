@@ -354,6 +354,9 @@ static struct work_registers build_get_work_registers(u32 **p)
 	if (scratch_reg >= 0) {
 		/* Save in CPU local C0_KScratch? */
 		UASM_i_MTC0(p, 1, c0_kscratch(), scratch_reg);
+#ifdef CONFIG_MIPS_BAIKAL
+		uasm_i_ehb(p);
+#endif
 		r.r1 = K0;
 		r.r2 = K1;
 		r.r3 = 1;
@@ -1025,6 +1028,28 @@ static void build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr)
 
 static void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 {
+	if (config_enabled(CONFIG_XPA)) {
+		int pte_off_even = sizeof(pte_t) / 2;
+		int pte_off_odd = pte_off_even + sizeof(pte_t);
+
+		uasm_i_lw(p, tmp, pte_off_even, ptep); /* even pte */
+		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL));
+		UASM_i_MTC0(p, tmp, C0_ENTRYLO0);
+
+		uasm_i_lw(p, tmp, 0, ptep);
+		uasm_i_ext(p, tmp, tmp, 0, 24);
+		uasm_i_mthc0(p, tmp, C0_ENTRYLO0);
+
+		uasm_i_lw(p, tmp, pte_off_odd, ptep); /* odd pte */
+		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL));
+		UASM_i_MTC0(p, tmp, C0_ENTRYLO1);
+
+		uasm_i_lw(p, tmp, sizeof(pte_t), ptep);
+		uasm_i_ext(p, tmp, tmp, 0, 24);
+		uasm_i_mthc0(p, tmp, C0_ENTRYLO1);
+		return;
+	}
+
 	/*
 	 * 64bit address support (36bit on a 32bit CPU) in a 32bit
 	 * Kernel is a special case. Only a few CPUs use it.
@@ -1032,27 +1057,12 @@ static void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 	if (config_enabled(CONFIG_PHYS_ADDR_T_64BIT) && !cpu_has_64bits) {
 		int pte_off_even = sizeof(pte_t) / 2;
 		int pte_off_odd = pte_off_even + sizeof(pte_t);
-#ifdef CONFIG_XPA
-		const int scratch = 1; /* Our extra working register */
 
-		uasm_i_addu(p, scratch, 0, ptep);
-#endif
 		uasm_i_lw(p, tmp, pte_off_even, ptep); /* even pte */
-		uasm_i_lw(p, ptep, pte_off_odd, ptep); /* odd pte */
-		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL));
-		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL));
 		UASM_i_MTC0(p, tmp, C0_ENTRYLO0);
+
+		uasm_i_lw(p, ptep, pte_off_odd, ptep); /* odd pte */
 		UASM_i_MTC0(p, ptep, C0_ENTRYLO1);
-#ifdef CONFIG_XPA
-		uasm_i_lw(p, tmp, 0, scratch);
-		uasm_i_lw(p, ptep, sizeof(pte_t), scratch);
-		uasm_i_lui(p, scratch, 0xff);
-		uasm_i_ori(p, scratch, scratch, 0xffff);
-		uasm_i_and(p, tmp, scratch, tmp);
-		uasm_i_and(p, ptep, scratch, ptep);
-		uasm_i_mthc0(p, tmp, C0_ENTRYLO0);
-		uasm_i_mthc0(p, ptep, C0_ENTRYLO1);
-#endif
 		return;
 	}
 
@@ -1541,14 +1551,12 @@ iPTE_LW(u32 **p, unsigned int pte, unsigned int ptr)
 
 static void
 iPTE_SW(u32 **p, struct uasm_reloc **r, unsigned int pte, unsigned int ptr,
-	unsigned int mode)
+	unsigned int mode, unsigned int scratch)
 {
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 	unsigned int hwmode = mode & (_PAGE_VALID | _PAGE_DIRTY);
 
-	if (!cpu_has_64bits) {
-		const int scratch = 1; /* Our extra working register */
-
+	if (config_enabled(CONFIG_XPA) && !cpu_has_64bits) {
 		uasm_i_lui(p, scratch, (mode >> 16));
 		uasm_i_or(p, pte, pte, scratch);
 	} else
@@ -1646,11 +1654,11 @@ build_pte_present(u32 **p, struct uasm_reloc **r,
 /* Make PTE valid, store result in PTR. */
 static void
 build_make_valid(u32 **p, struct uasm_reloc **r, unsigned int pte,
-		 unsigned int ptr)
+		 unsigned int ptr, unsigned int scratch)
 {
 	unsigned int mode = _PAGE_VALID | _PAGE_ACCESSED;
 
-	iPTE_SW(p, r, pte, ptr, mode);
+	iPTE_SW(p, r, pte, ptr, mode, scratch);
 }
 
 /*
@@ -1686,12 +1694,12 @@ build_pte_writable(u32 **p, struct uasm_reloc **r,
  */
 static void
 build_make_write(u32 **p, struct uasm_reloc **r, unsigned int pte,
-		 unsigned int ptr)
+		 unsigned int ptr, unsigned int scratch)
 {
 	unsigned int mode = (_PAGE_ACCESSED | _PAGE_MODIFIED | _PAGE_VALID
 			     | _PAGE_DIRTY);
 
-	iPTE_SW(p, r, pte, ptr, mode);
+	iPTE_SW(p, r, pte, ptr, mode, scratch);
 }
 
 /*
@@ -1796,7 +1804,7 @@ static void build_r3000_tlb_load_handler(void)
 	build_r3000_tlbchange_handler_head(&p, K0, K1);
 	build_pte_present(&p, &r, K0, K1, -1, label_nopage_tlbl);
 	uasm_i_nop(&p); /* load delay */
-	build_make_valid(&p, &r, K0, K1);
+	build_make_valid(&p, &r, K0, K1, -1);
 	build_r3000_tlb_reload_write(&p, &l, &r, K0, K1);
 
 	uasm_l_nopage_tlbl(&l, p);
@@ -1827,7 +1835,7 @@ static void build_r3000_tlb_store_handler(void)
 	build_r3000_tlbchange_handler_head(&p, K0, K1);
 	build_pte_writable(&p, &r, K0, K1, -1, label_nopage_tlbs);
 	uasm_i_nop(&p); /* load delay */
-	build_make_write(&p, &r, K0, K1);
+	build_make_write(&p, &r, K0, K1, -1);
 	build_r3000_tlb_reload_write(&p, &l, &r, K0, K1);
 
 	uasm_l_nopage_tlbs(&l, p);
@@ -1858,7 +1866,7 @@ static void build_r3000_tlb_modify_handler(void)
 	build_r3000_tlbchange_handler_head(&p, K0, K1);
 	build_pte_modifiable(&p, &r, K0, K1,  -1, label_nopage_tlbm);
 	uasm_i_nop(&p); /* load delay */
-	build_make_write(&p, &r, K0, K1);
+	build_make_write(&p, &r, K0, K1, -1);
 	build_r3000_pte_reload_tlbwi(&p, K0, K1);
 
 	uasm_l_nopage_tlbm(&l, p);
@@ -2026,7 +2034,7 @@ static void build_r4000_tlb_load_handler(void)
 		}
 		uasm_l_tlbl_goaround1(&l, p);
 	}
-	build_make_valid(&p, &r, wr.r1, wr.r2);
+	build_make_valid(&p, &r, wr.r1, wr.r2, wr.r3);
 	build_r4000_tlbchange_handler_tail(&p, &l, &r, wr.r1, wr.r2);
 
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
@@ -2140,7 +2148,7 @@ static void build_r4000_tlb_store_handler(void)
 	build_pte_writable(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbs);
 	if (m4kc_tlbp_war())
 		build_tlb_probe_entry(&p);
-	build_make_write(&p, &r, wr.r1, wr.r2);
+	build_make_write(&p, &r, wr.r1, wr.r2, wr.r3);
 	build_r4000_tlbchange_handler_tail(&p, &l, &r, wr.r1, wr.r2);
 
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
@@ -2196,7 +2204,7 @@ static void build_r4000_tlb_modify_handler(void)
 	if (m4kc_tlbp_war())
 		build_tlb_probe_entry(&p);
 	/* Present and writable bits set, set accessed and dirty bits. */
-	build_make_write(&p, &r, wr.r1, wr.r2);
+	build_make_write(&p, &r, wr.r1, wr.r2, wr.r3);
 	build_r4000_tlbchange_handler_tail(&p, &l, &r, wr.r1, wr.r2);
 
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT

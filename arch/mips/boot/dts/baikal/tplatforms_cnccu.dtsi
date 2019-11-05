@@ -1,0 +1,541 @@
+/*
+ * Baikal-T/T1 CNC CU v1/v2 board device tree
+ *
+ * Copyright (C) 2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+#include "tplatforms_cnccu-clocks.dtsi"
+
+/ {
+	/* Reserve memory regions for CMA and NTB */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* Reserve 32MB for CMA-based allocations */
+		cma: buffer@0 {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x01000000 0 0x05000000>;
+			size = <0 0x2000000>;
+			alignment = <0 0x1000000>;
+			reusable; /* specific for CMA */
+		};
+	};
+
+	i2c0_gp_mux {
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&i2c0>;
+		mux-gpios = <&porta 23 GPIO_ACTIVE_HIGH &porta 14 GPIO_ACTIVE_HIGH
+			     &porta 21 GPIO_ACTIVE_HIGH &porta 15 GPIO_ACTIVE_HIGH>;
+		idle-state = <0>; /* Noone is connected on idle */
+
+		i2c0_gp_p2: i2c0_gp_mux@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Backplanes #0,1,3 - see redefinition in the end of dts*/
+		};
+
+		i2c0_gp_idt: i2c0_gp_mux@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* IDT 89HPES12T3G2@0x60 - eeprom, registers access interface */
+			idt_cu_p3@60 {
+				compatible = "idt,89hpes12t3g2";
+				reg = <0x60>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				idt_cu_eeprom@50 {
+					compatible = "atmel,24c512";
+					reg = <0x50>;
+					/* Set read-only if no jumper is placed */
+					/* read-only; */
+				};
+			};
+		};
+
+		i2c0_gp_p4: i2c0_gp_mux@4 {
+			reg = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* DVI TFP410@0x38, VGA SM750@0x0 - no pull-up,
+			 * may hang up */
+		};
+
+		i2c0_gp_aux: i2c0_gp_mux@8 {
+			reg = <8>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			temp@48 {
+				compatible = "dallas,ds75";
+				reg = <0x48>;
+				/* Interrupt isn't supported on CU rev.1 */
+				interrupt-parent = <&porta>;
+				interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			temp@49 {
+				compatible = "dallas,ds75";
+				reg = <0x49>;
+				/* Interrupt isn't supported on CU rev.1 */
+				interrupt-parent = <&porta>;
+				interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+			};
+		};
+	};
+
+	i2c0_gp_usb {
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&i2c0_gp_aux>;
+		mux-gpios = <&porta 13 GPIO_ACTIVE_HIGH &porta 20 GPIO_ACTIVE_HIGH>;
+		idle-state = <0>; /* Noone is connected on idle */
+
+		i2c0_gp_hub: i2c0_gp_usb@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			eeprom@50 {
+				compatible = "atmel,24c04";
+				reg = <0x50>;
+				pagesize = <16>;
+			};
+
+			/* USB HUB - master (need to enable) */
+		};
+
+		i2c0_gp_sdmmc: i2c0_gp_usb@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			eeprom@50 {
+				compatible = "mcp,24c04";
+				reg = <0x50>;
+				pagesize = <16>;
+				/* The rest of device addresses are assigned
+				 * with dummy devices */
+			};
+
+			/* USB SDMMC - master (need to enable) */
+		};
+	};
+
+	/* CNC CU board platform device */
+	cnc {
+		compatible = "cnc,cu", "cnc,board";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		memory-region = <&cma>;
+		board_info = <&shred>;
+
+		cnc_bp@0 {
+			compatible = "cnc,bp";
+			reg = <0>;
+
+			board_idt_smb = <&idt_bp0_ssmb>;
+			board_io0_smb = <&io0_bp0_smb>;
+			board_io1_smb = <&io1_bp0_smb>;
+			board_down_smb = <&down_bp0_smb>;
+		};
+
+		cnc_bp@1 {
+			compatible = "cnc,bp";
+			reg = <1>;
+
+			board_idt_smb = <&idt_bp1_ssmb>;
+			board_io0_smb = <&io0_bp1_smb>;
+			board_io1_smb = <&io1_bp1_smb>;
+			board_down_smb = <&down_bp1_smb>;
+		};
+
+		cnc_bp@2 {
+			compatible = "cnc,bp";
+			reg = <2>;
+
+			board_idt_smb = <&idt_bp2_ssmb>;
+			board_io0_smb = <&io0_bp2_smb>;
+			board_io1_smb = <&io1_bp2_smb>;
+			board_down_smb = <&down_bp2_smb>;
+		};
+	};
+};
+
+&sata {
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
+};
+
+&xgmac {
+	status = "disabled";
+};
+
+&i2c1 {
+	status = "okay";
+
+	shred: gpio@21 {
+		compatible = "nxp,pcf8574";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <8>; /* Informative */
+	};
+
+	eeprom@51 {
+		compatible = "onsemi,24c64";
+		reg = <0x51>;
+		pagesize = <16>;
+	};
+};
+
+&uart1 {
+	status = "disabled";
+};
+
+/* RS485/RS232 SPI-devices */
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+
+	rs485: max14830@0 {
+		compatible = "maxim,max14830", "spidev";
+		reg = <0>;
+		/* Decrease frequency from 26MHz to 1MHz due to odd SPI-DW */
+		spi-max-frequency = <1000000>;
+		clocks = <&rs485_xtal>;
+		clock-names = "xtal";
+		interrupt-parent = <&porta>;
+		interrupts = <31 IRQ_TYPE_EDGE_FALLING>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <16>; /* Informative */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			linux,rs485-enabled-at-boot-time;
+		};
+		port@1 {
+			reg = <1>;
+			linux,rs485-enabled-at-boot-time;
+		};
+		port@2 {
+			reg = <2>;
+			linux,rs485-enabled-at-boot-time;
+		};
+		port@3 {
+			reg = <3>;
+			linux,rs485-enabled-at-boot-time;
+		};
+        };
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <1>;
+
+	rs232: max14830@0 {
+		compatible = "maxim,max14830", "spidev";
+		reg = <0>;
+		/* Decrease frequency from 26MHz to 1MHz due to odd SPI-DW */
+		spi-max-frequency = <1000000>;
+		clocks = <&rs232_xtal>;
+		clock-names = "xtal";
+		interrupt-parent = <&porta>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <16>; /* Informative */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			linux,rs485-enabled-at-boot-time;
+		};
+        };
+};
+
+/*
+ * Backplane #0 - optional PCIe x16 connected board, which reside IDT PCIe
+ * switch and can have up to six peripheral boards. CU is plugged to its
+ * upstream port and Backplane #1 - to it downstream port.
+ */
+&i2c0_gp_p2 {
+	/* Backplane #0 main i2c-mux */
+	i2c_bp0_mux: i2c_bp0_sw@70 {
+		compatible = "nxp,pca9548";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		idle-state = <0>; /* Spare0 is connected on idle */
+
+		/* Peripherals IO#0 SMBus */
+		io0_bp0_smb: i2c_bp0@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		/* IDT PCIe-switch Slave SMBus */
+		idt_bp0_ssmb: i2c_bp0@3 {
+			reg = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* IDT 89H32NT8AG2@0x74 - eeprom, CSR iface */
+			idt_bp0@74 {
+				compatible = "idt,89hpes32nt8ag2";
+				reg = <0x74>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				idt_bp0_eeprom@50 {
+					compatible = "onsemi,24c64";
+					reg = <0x50>;
+					/* read-only; */
+				};
+			};
+
+			/* IDT9DBV0841@6C - PCIe freq,
+			 *  TPS56720@6E - DC/DC conv */
+		};
+
+		/* Downstream SMBus */
+		down_bp0_smb: i2c_bp0@4 {
+			reg = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Backplane #1 */
+		};
+
+		/* Peripherals IO#1 SMBus */
+		io1_bp0_smb: i2c_bp0@5 {
+			reg = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		/* WD irq expander SMBus
+		 * NOTE This is specific for rev.3 backplanes
+		 */
+		wd_bp0_smb: i2c_bp0@7 {
+			reg = <7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			wd_irq_bp0: wd_exp_bp0@24 {
+				compatible = "nxp,pcf8574";
+				reg = <0x24>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <8>; /* Informative */
+
+				interrupt-parent = <&porta>;
+				interrupts = <8 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+			};
+		};
+	};
+};
+
+/*
+ * Backplane #1 - optional PCIe x16 connected board, which reside IDT PCIe
+ * switch and can have up to six peripheral boards. Backplane #0 is plugged
+ * to its upstream port and Backplane #3 - to it downstream port.
+ */
+&down_bp0_smb {
+	/* Backplane #1 main i2c-mux */
+	i2c_bp1_mux: i2c_bp1_sw@70 {
+		compatible = "nxp,pca9548";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		idle-state = <0>; /* Spare0 is connected on idle */
+
+		/* Peripherals IO#0 SMBus */
+		io0_bp1_smb: i2c_bp1@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		/* IDT PCIe-switch Slave SMBus */
+		idt_bp1_ssmb: i2c_bp1@3 {
+			reg = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* IDT 89H32NT8AG2@0x74 - eeprom, CSR iface */
+			idt_bp1@74 {
+				compatible = "idt,89hpes32nt8ag2";
+				reg = <0x74>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				idt_bp1_eeprom@50 {
+					compatible = "onsemi,24c64";
+					reg = <0x50>;
+					/* read-only; */
+				};
+			};
+
+			/* IDT9DBV0841@6C - PCIe freq,
+			 *  TPS56720@6E - DC/DC conv */
+		};
+
+		/* Downstream SMBus */
+		down_bp1_smb: i2c_bp1@4 {
+			reg = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Backplane #3 */
+		};
+
+		/* Peripherals IO#1 SMBus */
+		io1_bp1_smb: i2c_bp1@5 {
+			reg = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		/* WD irq expander SMBus
+		 * NOTE This is specific for rev.3 backplanes
+		 */
+		wd_bp1_smb: i2c_bp1@7 {
+			reg = <7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			wd_irq_bp1: wd_exp_bp1@24 {
+				compatible = "nxp,pcf8574";
+				reg = <0x24>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <8>; /* Informative */
+
+				interrupt-parent = <&wd_irq_bp0>;
+				interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+			};
+		};
+	};
+};
+
+/*
+ * Backplane #2 - optional PCIe x16 connected board, which reside IDT PCIe
+ * switch and can have up to six peripheral boards. Backplane #1 is plugged
+ * to its upstream port and practically nothing should be on downstream
+ * from platform point of view. Theoretically other backplanes or some PCIe
+ * end-point devices can be connected to downstream port, but CU won't be
+ * able to reach any of i2c-based functionality exposed from there.
+ */
+&down_bp1_smb {
+	/* Backplane #1 main i2c-mux */
+	i2c_bp2_mux: i2c_bp2_sw@70 {
+		compatible = "nxp,pca9548";
+		reg = <0x73>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		idle-state = <0>; /* Spare0 is connected on idle */
+
+		/* Peripherals IO#0 SMBus */
+		io0_bp2_smb: i2c_bp2@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		/* IDT PCIe-switch Slave SMBus */
+		idt_bp2_ssmb: i2c_bp2@3 {
+			reg = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* IDT 89H32NT8AG2@0x74 - eeprom, CSR iface */
+			idt_bp2@74 {
+				compatible = "idt,89hpes32nt8ag2";
+				reg = <0x74>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				idt_bp2_eeprom@50 {
+					compatible = "onsemi,24c64";
+					reg = <0x50>;
+					/* read-only; */
+				};
+			};
+
+			/* IDT9DBV0841@6C - PCIe freq,
+			 *  TPS56720@6E - DC/DC conv */
+		};
+
+		/* Downstream SMBus */
+		down_bp2_smb: i2c_bp2@4 {
+			reg = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Platform undefined devices */
+		};
+
+		/* Peripherals IO#1 SMBus */
+		io1_bp2_smb: i2c_bp2@5 {
+			reg = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		/* WD irq expander SMBus
+		 * NOTE This is specific for rev.3 backplanes
+		 */
+		wd_bp2_smb: i2c_bp2@7 {
+			reg = <7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			wd_irq_bp2: wd_exp_bp2@24 {
+				compatible = "nxp,pcf8574";
+				reg = <0x24>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <8>; /* Informative */
+
+				interrupt-parent = <&wd_irq_bp1>;
+				interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+			};
+		};
+	};
+};

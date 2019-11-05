@@ -1,0 +1,136 @@
+/*
+ * Baikal-T Tclient SFBT1 board device tree
+ *
+ * Copyright (C) 2016-2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include "tplatforms_sfbt1.dtsi"
+
+/ {
+	model = "Baikal-T Tclient SFBT1 Board";
+	compatible = "baikal,mips", "baikal,baikal-t-soc", "tplatforms,baikal-sfbt1-card", "tplatforms,baikal-tc-sfbt1-board";
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		display_reserved: framebuffer@0x07000000 {
+			reg = <0 0x07000000 0 0x01000000>;
+		};
+	};
+
+	platform_setting {
+		sm750,backlight-gpios = <&porta 29 GPIO_ACTIVE_HIGH>,
+					<&porta 31 GPIO_ACTIVE_HIGH>;
+		sm750,backlight-pwm = <0>;
+	};
+};
+
+&mdio0 {
+	status = "disabled";
+};
+
+&xgmac {
+	status = "disabled";
+};
+
+&i2c0 {
+	status = "okay";
+
+	GPmux: max7358@70 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "max,max735x";
+		reg = <0x70>;
+		interrupt-parent = <&porta>;
+		interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
+
+		i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x1>;
+
+			multiports_usbhub: usb2517@2c {
+				compatible = "microchip,usb2517";
+				reg = <0x2c>;
+
+				/* Configs are set by BMC (if not see doc for details) */
+				/* reset-gpios = <&control1 3 GPIO_ACTIVE_LOW>; */
+				skip-config;
+		        };
+
+			usbhubfw_eeprom: eeprom@53 {
+				compatible = "atmel,24c32";
+				reg = <0x50>;
+				pagesize = <32>;
+			};
+		};
+
+		i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x2>;
+
+			ssd32Gb: sm631@2C {
+				compatible = "siliconmotion,sm631";
+				reg = <0x2C>;
+			};
+		};
+
+		i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x6>;
+
+			control1: gpio@20 {
+				compatible = "nxp,pcf8574";
+				reg = <0x20>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <8>; /* Informative */
+			};
+
+			control2: gpio@22 {
+				compatible = "nxp,pcf8574";
+				reg = <0x22>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				ngpios = <8>; /* Informative */
+			};
+		};
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	shred: gpio@21 {
+		compatible = "nxp,pcf8574";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <8>; /* Informative */
+	};
+
+	fru: eeprom@53 {
+		compatible = "atmel,24c32";
+		reg = <0x53>;
+		pagesize = <32>;
+	};
+};
+
+&spi0 {
+	status = "disabled";
+};
+
+&spi1 {
+	status = "disabled";
+};

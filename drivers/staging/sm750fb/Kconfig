@@ -5,6 +5,9 @@ config FB_SM750
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
+	select BACKLIGHT_LCD_SUPPORT
+	select BACKLIGHT_CLASS_DEVICE
+	select I2C_ALGOBIT
 	help
 	  Frame buffer driver for the Silicon Motion SM750 chip
 	  with 2D accelearion and dual head support.
@@ -12,3 +15,7 @@ config FB_SM750
 	  This driver is also available as a module. The module will be
 	  called sm750fb. If you want to compile it as a module, say M
 	  here and read <file:Documentation/kbuild/modules.txt>.
+
+config SM750_DMA
+	bool "Enable PCIe DMA for SM750"
+	depends on FB_SM750 && BAIKAL_EDMA

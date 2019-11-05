@@ -12,6 +12,8 @@
 #ifndef _ASM_IO_H
 #define _ASM_IO_H
 
+#define ARCH_HAS_IOREMAP_WC
+
 #include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -30,6 +32,10 @@
 
 #include <ioremap.h>
 #include <mangle-port.h>
+
+#ifdef CONFIG_MIPS_BAIKAL
+#include <asm/mach-baikal/baikal_io.h>
+#endif /* CONFIG_MIPS_BAIKAL */
 
 /*
  * Slowdown I/O port space accesses for antique hardware.
@@ -277,15 +283,32 @@ static inline void __iomem * __ioremap_mode(phys_addr_t offset, unsigned long si
 	__ioremap_mode((offset), (size), _page_cachable_default)
 
 /*
- * These two are MIPS specific ioremap variant.	 ioremap_cacheable_cow
- * requests a cachable mapping, ioremap_uncached_accelerated requests a
- * mapping using the uncached accelerated mode which isn't supported on
- * all processors.
+ * ioremap_wc     -   map bus memory into CPU space
+ * @offset:    bus address of the memory
+ * @size:      size of the resource to map
+ *
+ * ioremap_wc performs a platform specific sequence of operations to
+ * make bus memory CPU accessible via the readb/readw/readl/writeb/
+ * writew/writel functions and the other mmio helpers. The returned
+ * address is not guaranteed to be usable directly as a virtual
+ * address.
+ *
+ * This version of ioremap ensures that the memory is marked uncachable
+ * but accelerated by means of write-combining feature. It is specifically
+ * useful for PCIe prefetchable windows, which may vastly improve a
+ * communications performance. If it was determined on boot stage, what
+ * CPU CCA doesn't support UCA, the method shall fall-back to the
+ * _CACHE_UNCACHED option (see cpu_probe() method).
+ */
+#define ioremap_wc(offset, size)					\
+	__ioremap_mode((offset), (size), boot_cpu_data.writecombine)
+
+/*
+ * This is a MIPS specific ioremap variant. ioremap_cacheable_cow
+ * requests a cachable mapping with CWB attribute enabled.
  */
 #define ioremap_cacheable_cow(offset, size)				\
 	__ioremap_mode((offset), (size), _CACHE_CACHABLE_COW)
-#define ioremap_uncached_accelerated(offset, size)			\
-	__ioremap_mode((offset), (size), _CACHE_UNCACHED_ACCELERATED)
 
 static inline void iounmap(const volatile void __iomem *addr)
 {
@@ -429,7 +452,11 @@ __BUILD_MEMORY_PFX(__mem_, bwlq, type)					\
 BUILDIO_MEM(b, u8)
 BUILDIO_MEM(w, u16)
 BUILDIO_MEM(l, u32)
+#ifdef CONFIG_MIPS_BAIKAL
+BUILDIO_MEM_BE(q, u64)
+#else
 BUILDIO_MEM(q, u64)
+#endif /* CONFIG_MIPS_BAIKAL */
 
 #define __BUILD_IOPORT_PFX(bus, bwlq, type)				\
 	__BUILD_IOPORT_SINGLE(bus, bwlq, type, ,)			\
@@ -607,6 +634,8 @@ extern void (*_dma_cache_inv)(unsigned long start, unsigned long size);
 	do { (void) (start); (void) (size); } while (0)
 
 #endif /* CONFIG_DMA_NONCOHERENT || CONFIG_DMA_MAYBE_COHERENT */
+
+extern void (*__flush_scache)(void);
 
 /*
  * Read a 32-bit register that requires a 64-bit read cycle on the bus.

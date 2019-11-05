@@ -1,0 +1,60 @@
+ADS1000/ADS1100 (I2C)
+
+This device is a 12-16 bit A-D converter with 1 input.
+
+The inputs can be used either as a differential pair of Vin+ Vin- or as a single
+ended sensor for Vin+ GND. The inputs mode is platform-dependent and isn't
+configured by software in any case.
+
+Device A-D converter sensitivity can be configured using two parameters:
+ - pga is the programmable gain amplifier
+    0: x1 (default) 
+    1: x2
+    2: x4
+    3: x8
+ - data_rate in samples per second also affecting the output code occuracy
+    0: 128SPS - +/- Vdd*0.488mV (default, ads1000 accepts this rate only)
+    1: 32SPS  - +/- Vdd*0.122mV
+    2: 16SPS  - +/- Vdd*0.061mV
+    3: 8SPS   - +/- Vdd*0.030mV
+   This parameter also affect the output occuracy
+
+As a result the output value is calculated by the next formulae:
+dVin = Cod * Vdd / (PGA * max(|Cod|)), where
+max(|Cod|) - maximum possible value of the output code, which depends on the SPS
+setting from the table above.
+
+The ADS1000/ADS1100 dts-node:
+
+  Required properties:
+   - compatible : must be "ti,ads1000" or "ti,ads1100"
+   - reg : I2C bus address of the device
+   - #address-cells : must be <1>
+   - #size-cells : must be <0>
+   - vdd-supply : regulator for reference supply voltage (usually fixed)
+
+  Optional properties:
+   - ti,gain : the programmable gain amplifier setting
+   - ti,datarate : the converter data rate
+   - ti,voltage-divider : <R1 R2> Ohms inbound voltage dividers,
+     so dVin = (R1 + R2)/R2 * dVin
+
+Example:
+
+vdd_5v0: fixedregulator@0 {
+	compatible = "regulator-fixed";
+	regulator-name = "vdd-ref";
+	regulator-min-microvolt = <5000000>;
+	regulator-max-microvolt = <5000000>;
+	regulator-always-on;
+};
+
+tiadc: ads1000@48 {
+	compatible = "ti,ads1000";
+	reg = <0x48>;
+
+	vdd-supply = <&vdd_5v0>;
+	ti,gain = <0>;
+	ti,voltage-divider = <31600 3600>;
+};
+

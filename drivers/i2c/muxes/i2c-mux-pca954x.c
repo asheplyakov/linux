@@ -56,6 +56,7 @@ enum pca_type {
 	pca_9546,
 	pca_9547,
 	pca_9548,
+	max_735x,
 };
 
 struct pca954x {
@@ -103,6 +104,10 @@ static const struct chip_desc chips[] = {
 		.nchans = 8,
 		.muxtype = pca954x_isswi,
 	},
+	[max_735x] = {
+		.nchans = 8,
+		.muxtype = pca954x_isswi,
+	},
 };
 
 static const struct i2c_device_id pca954x_id[] = {
@@ -114,6 +119,7 @@ static const struct i2c_device_id pca954x_id[] = {
 	{ "pca9546", pca_9545 },
 	{ "pca9547", pca_9547 },
 	{ "pca9548", pca_9548 },
+	{ "max735x", max_735x },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, pca954x_id);

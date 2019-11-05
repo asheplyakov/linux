@@ -610,7 +610,7 @@ static void __clocksource_select(bool skipcur)
 	}
 
 	if (curr_clocksource != best && !timekeeping_notify(best)) {
-		pr_info("Switched to clocksource %s\n", best->name);
+		/*pr_info("Switched to clocksource %s\n", best->name);*/
 		curr_clocksource = best;
 	}
 }
@@ -739,8 +739,8 @@ void __clocksource_update_freq_scale(struct clocksource *cs, u32 scale, u32 freq
 
 	clocksource_update_max_deferment(cs);
 
-	pr_info("%s: mask: 0x%llx max_cycles: 0x%llx, max_idle_ns: %lld ns\n",
-		cs->name, cs->mask, cs->max_cycles, cs->max_idle_ns);
+	/*pr_info("%s: mask: 0x%llx max_cycles: 0x%llx, max_idle_ns: %lld ns\n",
+		cs->name, cs->mask, cs->max_cycles, cs->max_idle_ns);*/
 }
 EXPORT_SYMBOL_GPL(__clocksource_update_freq_scale);
 
@@ -793,6 +793,16 @@ void clocksource_change_rating(struct clocksource *cs, int rating)
 	mutex_unlock(&clocksource_mutex);
 }
 EXPORT_SYMBOL(clocksource_change_rating);
+
+void __clocksource_change_freq(struct clocksource *cs, u32 rating, u32 freq)
+{
+	__clocksource_update_freq_hz(cs, freq);
+	clocksource_change_rating(cs, rating);
+	mutex_lock(&clocksource_mutex);
+	clocksource_select_fallback();
+	mutex_unlock(&clocksource_mutex);
+}
+EXPORT_SYMBOL_GPL(__clocksource_change_freq);
 
 /*
  * Unbind clocksource @cs. Called with clocksource_mutex held

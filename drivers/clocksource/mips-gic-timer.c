@@ -17,9 +17,12 @@
 #include <linux/smp.h>
 #include <linux/time.h>
 
+#define CALCULATE_RATING(gic_freq) 200 + gic_freq / 10000000
+
 static DEFINE_PER_CPU(struct clock_event_device, gic_clockevent_device);
 static int gic_timer_irq;
 static unsigned int gic_frequency;
+static void __init __gic_clocksource_init(void);
 
 static int gic_next_event(unsigned long delta, struct clock_event_device *evt)
 {
@@ -94,14 +97,41 @@ static int gic_cpu_notifier(struct notifier_block *nb, unsigned long action,
 	return NOTIFY_OK;
 }
 
+static cycle_t gic_hpt_read(struct clocksource *cs)
+{
+	return gic_read_count();
+}
+
+static struct clocksource gic_clocksource = {
+	.name		= "GIC",
+	.read		= gic_hpt_read,
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
+	.archdata	= { .vdso_clock_mode = VDSO_CLOCK_GIC },
+};
+
 static int gic_clk_notifier(struct notifier_block *nb, unsigned long action,
 			    void *data)
 {
 	struct clk_notifier_data *cnd = data;
+	int ret;
 
-	if (action == POST_RATE_CHANGE)
+	if (action == PRE_RATE_CHANGE){
+
+	/* Update clocksource in case of new freq */
+		clocksource_unregister(&gic_clocksource);
+	}
+
+	if (action == POST_RATE_CHANGE){
+	/* Update clocksource in case of new freq */
+		gic_frequency = cnd->new_rate;
+        /* Set clocksource mask. */
+		gic_clocksource.mask = CLOCKSOURCE_MASK(gic_get_count_width());
+		gic_clocksource.rating = CALCULATE_RATING(gic_frequency);
+		ret = clocksource_register_hz(&gic_clocksource, gic_frequency);
+		if (ret < 0)
+			pr_warn("GIC: Unable to register clocksource\n");
 		on_each_cpu(gic_update_frequency, (void *)cnd->new_rate, 1);
-
+	}
 	return NOTIFY_OK;
 }
 
@@ -134,17 +164,7 @@ static int gic_clockevent_init(void)
 	return 0;
 }
 
-static cycle_t gic_hpt_read(struct clocksource *cs)
-{
-	return gic_read_count();
-}
 
-static struct clocksource gic_clocksource = {
-	.name		= "GIC",
-	.read		= gic_hpt_read,
-	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
-	.archdata	= { .vdso_clock_mode = VDSO_CLOCK_GIC },
-};
 
 static void __init __gic_clocksource_init(void)
 {
@@ -154,7 +174,7 @@ static void __init __gic_clocksource_init(void)
 	gic_clocksource.mask = CLOCKSOURCE_MASK(gic_get_count_width());
 
 	/* Calculate a somewhat reasonable rating value. */
-	gic_clocksource.rating = 200 + gic_frequency / 10000000;
+	gic_clocksource.rating = CALCULATE_RATING(gic_frequency);
 
 	ret = clocksource_register_hz(&gic_clocksource, gic_frequency);
 	if (ret < 0)

@@ -8,8 +8,12 @@
  * option) any later version.
  */
 
+#include <linux/binfmts.h>
 #include <linux/elf.h>
+#include <linux/export.h>
 #include <linux/sched.h>
+
+#include <asm/cpu-features.h>
 
 /* FPU modes */
 enum {
@@ -254,3 +258,19 @@ void mips_set_personality_fp(struct arch_elf_state *state)
 		BUG();
 	}
 }
+
+int mips_elf_read_implies_exec(void *elf_ex, int exstack)
+{
+	if (exstack != EXSTACK_DISABLE_X) {
+		/* The binary doesn't request a non-executable stack */
+		return 1;
+	}
+
+	if (!cpu_has_rixi) {
+		/* The CPU doesn't support non-executable memory */
+		return 1;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mips_elf_read_implies_exec);

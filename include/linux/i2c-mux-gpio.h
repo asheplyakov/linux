@@ -25,6 +25,7 @@
  * @gpio_chip: Optional GPIO chip name; if set, GPIO pin numbers are given
  *	relative to the base GPIO number of that chip
  * @gpios: Array of GPIO numbers used to control MUX
+ * @flags: Array of GPIO flags like active-low
  * @n_gpios: Number of GPIOs used to control MUX
  * @idle: Bitmask to write to MUX when idle or GPIO_I2CMUX_NO_IDLE if not used
  */
@@ -36,6 +37,7 @@ struct i2c_mux_gpio_platform_data {
 	const unsigned *classes;
 	char *gpio_chip;
 	const unsigned *gpios;
+	const unsigned *flags;
 	int n_gpios;
 	unsigned idle;
 };

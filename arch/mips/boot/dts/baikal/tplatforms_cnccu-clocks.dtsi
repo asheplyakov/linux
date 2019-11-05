@@ -1,0 +1,30 @@
+/*
+ * Baikal-T CNC CU board clock tree.
+ *
+ * Copyright (C) 2016-2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/ {
+	clocks_cnccu {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		rs485_xtal: rs485_clk4m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <3686400>;
+		};
+
+		rs232_xtal: rs232_clk4m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <3686400>;
+		};
+	};
+};

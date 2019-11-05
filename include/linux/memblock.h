@@ -25,6 +25,7 @@ enum {
 	MEMBLOCK_NONE		= 0x0,	/* No special request */
 	MEMBLOCK_HOTPLUG	= 0x1,	/* hotpluggable region */
 	MEMBLOCK_MIRROR		= 0x2,	/* mirrored region */
+	MEMBLOCK_NOMAP		= 0x4,	/* don't add to kernel direct mapping */
 };
 
 struct memblock_region {
@@ -64,8 +65,8 @@ extern bool movable_node_enabled;
 	if (memblock_debug) printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
 
 phys_addr_t memblock_find_in_range_node(phys_addr_t size, phys_addr_t align,
-					    phys_addr_t start, phys_addr_t end,
-					    int nid, ulong flags);
+					phys_addr_t start, phys_addr_t end,
+					int nid, ulong flags);
 phys_addr_t memblock_find_in_range(phys_addr_t start, phys_addr_t end,
 				   phys_addr_t size, phys_addr_t align);
 phys_addr_t get_allocated_memblock_reserved_regions_info(phys_addr_t *addr);
@@ -82,6 +83,8 @@ bool memblock_overlaps_region(struct memblock_type *type,
 int memblock_mark_hotplug(phys_addr_t base, phys_addr_t size);
 int memblock_clear_hotplug(phys_addr_t base, phys_addr_t size);
 int memblock_mark_mirror(phys_addr_t base, phys_addr_t size);
+int memblock_mark_nomap(phys_addr_t base, phys_addr_t size);
+int memblock_clear_nomap(phys_addr_t base, phys_addr_t size);
 ulong choose_memblock_flags(void);
 
 /* Low level functions */
@@ -100,7 +103,10 @@ void __next_mem_range_rev(u64 *idx, int nid, ulong flags,
 			  phys_addr_t *out_end, int *out_nid);
 
 void __next_reserved_mem_region(u64 *idx, phys_addr_t *out_start,
-			       phys_addr_t *out_end);
+				phys_addr_t *out_end);
+
+void __memblock_free_early(phys_addr_t base, phys_addr_t size);
+void __memblock_free_late(phys_addr_t base, phys_addr_t size);
 
 /**
  * for_each_mem_range - iterate through memblock areas from type_a and not
@@ -138,7 +144,7 @@ void __next_reserved_mem_region(u64 *idx, phys_addr_t *out_start,
 			       p_start, p_end, p_nid)			\
 	for (i = (u64)ULLONG_MAX,					\
 		     __next_mem_range_rev(&i, nid, flags, type_a, type_b,\
-					 p_start, p_end, p_nid);	\
+					  p_start, p_end, p_nid);	\
 	     i != (u64)ULLONG_MAX;					\
 	     __next_mem_range_rev(&i, nid, flags, type_a, type_b,	\
 				  p_start, p_end, p_nid))
@@ -153,8 +159,7 @@ void __next_reserved_mem_region(u64 *idx, phys_addr_t *out_start,
  * is initialized.
  */
 #define for_each_reserved_mem_region(i, p_start, p_end)			\
-	for (i = 0UL,							\
-	     __next_reserved_mem_region(&i, p_start, p_end);		\
+	for (i = 0UL, __next_reserved_mem_region(&i, p_start, p_end);	\
 	     i != (u64)ULLONG_MAX;					\
 	     __next_reserved_mem_region(&i, p_start, p_end))
 
@@ -182,6 +187,11 @@ static inline bool movable_node_is_enabled(void)
 static inline bool memblock_is_mirror(struct memblock_region *m)
 {
 	return m->flags & MEMBLOCK_MIRROR;
+}
+
+static inline bool memblock_is_nomap(struct memblock_region *m)
+{
+	return m->flags & MEMBLOCK_NOMAP;
 }
 
 #ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
@@ -387,10 +397,14 @@ static inline unsigned long memblock_region_reserved_end_pfn(const struct memblo
 }
 
 #define for_each_memblock(memblock_type, region)					\
-	for (region = memblock.memblock_type.regions;				\
+	for (region = memblock.memblock_type.regions;					\
 	     region < (memblock.memblock_type.regions + memblock.memblock_type.cnt);	\
 	     region++)
 
+#define for_each_memblock_type(i, memblock_type, rgn)			\
+	for (i = 0, rgn = &memblock_type->regions[0];			\
+	     i < memblock_type->cnt;					\
+	     i++, rgn = &memblock_type->regions[i])
 
 #ifdef CONFIG_ARCH_DISCARD_MEMBLOCK
 #define __init_memblock __meminit

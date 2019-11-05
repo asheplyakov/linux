@@ -1,0 +1,45 @@
+/*
+ * Baikal-T1 XA1-MRBT1 board device tree
+ *
+ * Copyright (C) 2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include "tplatforms_mrbt1.dtsi"
+
+/ {
+	model = "Baikal-T1 XA1-MRBT1 Board";
+	compatible = "baikal,mips", "baikal,baikal-t1-soc", "tplatforms,baikal-mrbt1-card", "tplatforms,baikal-xa1-mrbt1-board";
+};
+
+&i2c0 {
+	status = "okay";
+
+	test_mrbt1: gpioexp@20 {
+		compatible = "nxp,pca9535";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <16>; /* Informative */
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <4>;
+
+	test_spi1: mt25qu128@0 {
+		compatible = "micron,mt25qu128", "jedec,spi-nor";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+		m25p,fast-read;
+	};
+};

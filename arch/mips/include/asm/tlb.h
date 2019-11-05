@@ -22,6 +22,16 @@
 		((CKSEG0 + ((idx) << (PAGE_SHIFT + 1))) |		\
 		 (cpu_has_tlbinv ? MIPS_ENTRYHI_EHINV : 0))
 
+static inline unsigned int num_wired_entries(void)
+{
+	unsigned int wired = read_c0_wired();
+
+	if (cpu_has_mips_r6)
+		wired &= MIPSR6_WIRED_WIRED;
+
+	return wired;
+}
+
 #include <asm-generic/tlb.h>
 
 #endif /* __ASM_TLB_H */

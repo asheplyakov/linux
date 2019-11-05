@@ -19,6 +19,8 @@
 #define KEXEC_CONTROL_MEMORY_LIMIT (0x20000000)
 /* Reserve 3*4096 bytes for board-specific info */
 #define KEXEC_CONTROL_PAGE_SIZE (4096 + 3*4096)
+/* We need low memory for kexec - override default GFP_HIGHUSER */
+#define KEXEC_KIMAGE_LOW_MEM_ALLOC
 
 /* The native architecture */
 #define KEXEC_ARCH KEXEC_ARCH_MIPS

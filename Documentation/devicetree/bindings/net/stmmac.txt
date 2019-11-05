@@ -12,6 +12,7 @@ Required properties:
   property
 - phy-mode: See ethernet.txt file in the same directory.
 - snps,reset-gpio 	gpio number for phy reset.
+- snps,reset-gp-out 	use stmmac gp out pin for phy reset.
 - snps,reset-active-low boolean flag to indicate if phy reset is active low.
 - snps,reset-delays-us  is triplet of delays
 	The 1st cell is reset pre-delay in micro seconds.

@@ -210,7 +210,11 @@ static void boot_core(unsigned core)
 	if (mips_cpc_present()) {
 		/* Reset the core */
 		mips_cpc_lock_other(core);
-		write_cpc_co_cmd(CPC_Cx_CMD_RESET);
+		/*
+		 * Use PWRUP instead of RESET command for operating EJTAG.
+		 * Otherwise there is no EJTAG chain.
+		 */
+		write_cpc_co_cmd(CPC_Cx_CMD_PWRUP);
 
 		timeout = 100;
 		while (true) {
@@ -304,8 +308,11 @@ static void cps_init_secondary(void)
 	if (cpu_has_mipsmt)
 		dmt();
 
-	change_c0_status(ST0_IM, STATUSF_IP2 | STATUSF_IP3 | STATUSF_IP4 |
-				 STATUSF_IP5 | STATUSF_IP6 | STATUSF_IP7);
+	if (cpu_has_veic)
+		clear_c0_status(ST0_IM);
+	else
+		change_c0_status(ST0_IM, STATUSF_IP2 | STATUSF_IP3 | STATUSF_IP4 |
+				 	STATUSF_IP5 | STATUSF_IP6 | STATUSF_IP7);
 }
 
 static void cps_smp_finish(void)
@@ -357,11 +364,10 @@ void play_dead(void)
 	local_irq_disable();
 	idle_task_exit();
 	cpu = smp_processor_id();
+	core = cpu_data[cpu].core;
 	cpu_death = CPU_DEATH_POWER;
 
 	if (cpu_has_mipsmt) {
-		core = cpu_data[cpu].core;
-
 		/* Look for another online VPE within the core */
 		for_each_online_cpu(cpu_death_sibling) {
 			if (cpu_data[cpu_death_sibling].core != core)

@@ -16,6 +16,7 @@
 #include <linux/vmalloc.h>
 #include <linux/pagemap.h>
 #include <linux/console.h>
+#include <linux/sort.h>
 #include <asm/fb.h>
 #include "sm750.h"
 #include "sm750_accel.h"
@@ -31,6 +32,12 @@
  * size_t count, loff_t *ppos);
  * #endif
  */
+
+#ifdef CONFIG_SM750_DMA
+ssize_t dw_fb_write(struct fb_info *info, const char __user *buf,
+			size_t count, loff_t *ppos);
+int dw_fb_ioctl(struct fb_info *info, u_int cmd, u_long arg);
+#endif
 
 /* common var for all device */
 static int g_hwcursor = 1;
@@ -725,9 +732,64 @@ static struct fb_ops lynxfb_ops = {
 	.fb_fillrect = cfb_fillrect,
 	.fb_imageblit = cfb_imageblit,
 	.fb_copyarea = cfb_copyarea,
+#ifdef CONFIG_SM750_DMA
+	.fb_write = dw_fb_write,
+	.fb_ioctl = dw_fb_ioctl,
+#endif
 	/* cursor */
 	.fb_cursor = lynxfb_ops_cursor,
 };
+
+/*
+ * Helper function for modes sorting.
+ *
+ * Modes with higher overall resolution go to the tail to be retrieved
+ * at the head of modelist.
+ * If modes match, the one with flags (detailed timing etc.) goes to the
+ * head so to be added before the other one to get higher priority
+ * (see fb_add_videomode()).
+ */
+static int mode_cmp(const void *a, const void *b)
+{
+	const struct fb_videomode *x = a, *y = b;
+	int fl_x, fl_y;
+	int pix_x, pix_y;
+
+	pix_x = x->xres * x->yres;
+	pix_y = y->xres * y->yres;
+	if (pix_x > pix_y)
+		return 1;
+	else if (pix_x < pix_y)
+		return -1;
+
+	if (x->refresh > y->refresh)
+		return 1;
+	else if (x->refresh < y->refresh)
+		return -1;
+
+	fl_x = x->flag & FB_MODE_IS_FIRST;
+	fl_y = y->flag & FB_MODE_IS_FIRST;
+	if (fl_x > fl_y)
+		return -1;
+	else if (fl_x < fl_y)
+		return 1;
+
+	fl_x = x->flag & FB_MODE_IS_DETAILED;
+	fl_y = y->flag & FB_MODE_IS_DETAILED;
+	if (fl_x > fl_y)
+		return -1;
+	else if (fl_x < fl_y)
+		return 1;
+
+	fl_x = x->flag & FB_MODE_IS_STANDARD;
+	fl_y = y->flag & FB_MODE_IS_STANDARD;
+	if (fl_x > fl_y)
+		return -1;
+	else if (fl_x < fl_y)
+		return 1;
+
+	return 0;
+}
 
 static int lynxfb_set_fbinfo(struct fb_info *info, int index)
 {
@@ -738,6 +800,8 @@ static int lynxfb_set_fbinfo(struct fb_info *info, int index)
 	struct lynxfb_output *output;
 	struct fb_var_screeninfo *var;
 	struct fb_fix_screeninfo *fix;
+	u8 *edid = NULL;
+	bool mode_found = false;
 
 	const struct fb_videomode *pdb[] = {
 		lynx750_ext, NULL, vesa_modes,
@@ -796,14 +860,79 @@ static int lynxfb_set_fbinfo(struct fb_info *info, int index)
 		lynxfb_ops.fb_imageblit = lynxfb_ops_imageblit;
 	}
 	info->fbops = &lynxfb_ops;
+	var->bits_per_pixel = 32; /* set as default */
 
-	if (!g_fbmode[index]) {
+	if (sm750_dev->ddc[index].ddc_registered)
+		edid = sm750_ddc_read_edid(&sm750_dev->ddc[index].ddc_adapter);
+	if (!edid && index == 0 && sm750_dev->ddc[1].ddc_registered)
+		edid = sm750_ddc_read_edid(&sm750_dev->ddc[1].ddc_adapter);
+	if (edid) {
+		int sum = 0;
+		for (i = 0; i < 127; i++)
+			sum += edid[i];
+		sum = (-sum) & 0xff;
+		if (sum != edid[127]) {
+			pr_warn("EDID sum mismatch, fixing...\n");
+			edid[127] = sum;
+		}
+		fb_edid_to_monspecs(edid, &info->monspecs);
+		if (edid[126] > 0) {
+			sum = 0;
+			for (i = 128; i < 255; i++)
+				sum += edid[i];
+			sum = (-sum) & 0xff;
+			if (sum != edid[255]) {
+				pr_warn("E-EDID sum mismatch, fixing...\n");
+				edid[255] = sum;
+			}
+			fb_edid_add_monspecs(edid + 128, &info->monspecs);
+		}
+		kfree(edid);
+		pr_info("edid found, modedb_len %d\n",
+			info->monspecs.modedb_len);
+		if (!info->monspecs.modedb)
+			dev_err(info->device, "error getting mode database\n");
+		else {
+			const struct fb_videomode *m;
+			sort(info->monspecs.modedb, info->monspecs.modedb_len,
+			     sizeof(struct fb_videomode), mode_cmp, NULL);
+#ifdef DEBUG
+			m = info->monspecs.modedb;
+			for (i = 0; i < info->monspecs.modedb_len; i++, m++) {
+				pr_debug("mode %d: %dx%d@%d clock %d, flag %x\n",
+					 i, m->xres, m->yres, m->refresh,
+					 m->pixclock, m->flag);
+			}
+#endif
+
+			fb_videomode_to_modelist(info->monspecs.modedb,
+					info->monspecs.modedb_len,
+					&info->modelist);
+			while ((m = fb_find_best_display(&info->monspecs,
+						 &info->modelist)) != NULL) {
+				fb_videomode_to_var(var, m);
+				if (lynxfb_ops_check_var(var, info) == 0) {
+					mode_found = true;
+					pr_info("best videomode: %s, %dx%d@%d\n",
+						m->name, m->xres, m->yres,
+						m->refresh);
+					break;
+				} else {
+					pr_warn("mode %dx%d@%d rejected\n",
+						m->xres, m->yres, m->refresh);
+					fb_delete_videomode(m, &info->modelist);
+				}
+			}
+		}
+	}
+
+	if (!g_fbmode[index] && !mode_found) {
 		g_fbmode[index] = g_def_fbmode;
 		if (index)
 			g_fbmode[index] = g_fbmode[0];
 	}
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < 3 && g_fbmode[index]; i++) {
 
 		ret = fb_find_mode(var, info, g_fbmode[index],
 				   pdb[i], cdb[i], NULL, 8);
@@ -1008,6 +1137,18 @@ static int lynxfb_pci_probe(struct pci_dev *pdev,
 	struct fb_info *info[] = {NULL, NULL};
 	struct sm750_dev *sm750_dev = NULL;
 	int fbidx;
+#ifdef CONFIG_SM750_DMA
+	struct resource *r;
+
+	printk(KERN_INFO "%s: start\n", __FUNCTION__);
+	r = &pdev->resource[0];
+	if (!r->start && r->end) {
+		if (pci_assign_resource(pdev, 0)) {
+			pr_err("can't assign resource 0\n");
+			return -ENODEV;
+		}
+	}
+#endif/*CONFIG_SM750_DMA*/
 
 	/* enable device */
 	if (pci_enable_device(pdev)) {
@@ -1020,6 +1161,9 @@ static int lynxfb_pci_probe(struct pci_dev *pdev,
 		pr_err("Could not allocate memory for share.\n");
 		goto err_share;
 	}
+
+	if (smi_setup_dma(sm750_dev))
+		dev_err(&pdev->dev, "can't setup DMA!\n");
 
 	sm750_dev->fbinfo[0] = sm750_dev->fbinfo[1] = NULL;
 	sm750_dev->devid = pdev->device;
@@ -1069,8 +1213,12 @@ static int lynxfb_pci_probe(struct pci_dev *pdev,
 
 	pci_set_drvdata(pdev, sm750_dev);
 
+	sm750_setup_ddc(sm750_dev);
+
 	/* call chipInit routine */
 	hw_sm750_inithw(sm750_dev, pdev);
+
+	sm750_setup_bl(sm750_dev);
 
 	/* allocate frame buffer info structor according to g_dualview */
 	fbidx = 0;
@@ -1131,7 +1279,10 @@ err_register0:
 err_info0_set:
 	framebuffer_release(info[0]);
 err_info0_alloc:
+	sm750_remove_bl(sm750_dev);
+	sm750_remove_ddc(sm750_dev);
 err_map:
+	smi_release_dma(sm750_dev);
 	kfree(sm750_dev);
 err_share:
 err_enable:
@@ -1158,11 +1309,14 @@ static void lynxfb_pci_remove(struct pci_dev *pdev)
 		/* release frame buffer */
 		framebuffer_release(info);
 	}
+	sm750_remove_bl(sm750_dev);
+	sm750_remove_ddc(sm750_dev);
 	arch_phys_wc_del(sm750_dev->mtrr.vram);
 
 	iounmap(sm750_dev->pvReg);
 	iounmap(sm750_dev->pvMem);
 	kfree(g_settings);
+	smi_release_dma(sm750_dev);
 	kfree(sm750_dev);
 	pci_set_drvdata(pdev, NULL);
 }

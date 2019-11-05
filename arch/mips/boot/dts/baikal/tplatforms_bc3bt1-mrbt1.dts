@@ -1,0 +1,191 @@
+/*
+ * Baikal-T1 Axitech BC3BT1 MRBT1 board device tree
+ *
+ * Copyright (C) 2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include "tplatforms_mrbt1.dtsi"
+
+/ {
+	model = "Baikal-T1 Axitech BC3BT1 MRBT1 Board";
+	compatible = "baikal,mips", "baikal,baikal-t1-soc", "tplatforms,baikal-mrbt1-card", "tplatforms,baikal-bc3bt1-mrbt1-board";
+
+	ts3a5_sw {
+                compatible = "i2c-mux-gpio";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                i2c-parent = <&i2c0>;
+                mux-gpios = <&control1 7 GPIO_ACTIVE_LOW>;
+                idle-state = <0>; /* Noone is connected on idle */
+
+		sd_master_bus: ts3a5_sw@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sd_eeprom: eeprom@50 {
+				/* 0x51 is occupied by rtc so use 256 bytes only */
+				/*compatible = "atmel,24c04";*/
+				compatible = "atmel,24c02";
+				reg = <0x50>;
+				pagesize = <16>;
+			};
+		};
+	};
+
+	vdd_5v0: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd-ref";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+};
+
+&gmac0 {
+	/* Don't reset MDIO bus so the LEDs would be left initialized by U-boot */
+	/delete-property/ snps,reset-gp-out;
+};
+
+&gmac0_phy {
+	vsc8531,led-0-active-high;
+	vsc8531,led-1-active-high;
+	vsc8531,leds-drive-low-high;
+};
+
+&gmac1 {
+	/* Don't reset MDIO bus so the LEDs would be left initialized by U-boot */
+	/delete-property/ snps,reset-gp-out;
+};
+
+&gmac1_phy {
+	vsc8531,led-0-active-high;
+	vsc8531,led-1-active-high;
+	vsc8531,leds-drive-low-high;
+};
+
+&porta {
+	sd_reset {
+		line-name = "m2-full-pwr-off";
+		gpio-hog;
+		gpios = <22 GPIO_ACTIVE_LOW>;
+		output-low;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+
+	control1: gpioexp@22 {
+		compatible = "nxp,pca9535";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&porta>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ngpios = <16>; /* Informative */
+
+		sd_reset {
+			line-name = "sd-reset";
+			gpio-hog;
+			gpios = <4 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		/* SIM multiplexer */
+		/*gsm_reset {
+			line-name = "gsm-reset";
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-low;
+		};*/
+		sim_sel {
+			line-name = "sim-sel";
+			gpio-hog;
+			gpios = <14 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		kam_uart_reset {
+			line-name = "kam-uart-reset";
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		debug_uart_reset {
+			line-name = "debug-uart-reset";
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+	};
+
+	leds: gpioexp@23 {
+		compatible = "nxp,pca9535";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&porta>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ngpios = <16>; /* Informative */
+	};
+
+	rtc: rtc@51 {
+		compatible = "nxp,pcf2129", "nxp,pcf2127";
+		reg = <0x51>;
+		interrupt-parent = <&porta>;
+		interrupts = <29 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	multiports_usbhub: usb2513bi@2c {
+		compatible = "microchip,usb2513bi";
+		reg = <0x2c>;
+		reset-gpio = <&porta 23 GPIO_ACTIVE_LOW>;
+		/*reset-gpio = <&control1 11 GPIO_ACTIVE_LOW>;*/
+
+		self-powered;
+		multi-tt;
+		disable-eop;
+		individual-sensing;
+		individual-port-switching;
+		oc-delay-us = <8000>;
+		non-removable-ports = <1 2>;
+		sp-max-total-current-microamp = <200000>;
+		bp-max-total-current-microamp = <200000>;
+		sp-max-removable-current-microamp = <200000>;
+		bp-max-removable-current-microamp = <200000>;
+		power-on-time-ms = <100>;
+		us-lanes-inverted;
+	};
+
+	simmux: simmux@3c {
+		compatible = "ti,txs02326";
+		reg = <0x3c>;
+		reset-gpio = <&control1 6 GPIO_ACTIVE_LOW>;
+	};
+
+	tiadc: ads1000@48 {
+		compatible = "ti,ads1000";
+		reg = <0x48>;
+
+		vdd-supply = <&vdd_5v0>;
+		ti,gain = <0>;
+		ti,voltage-divider = <31600 3600>;
+	};
+};
+
+&spi1 {
+	status = "disabled";
+};

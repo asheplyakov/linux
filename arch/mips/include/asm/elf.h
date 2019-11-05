@@ -453,4 +453,7 @@ extern int arch_check_elf(void *ehdr, bool has_interpreter,
 
 extern void mips_set_personality_fp(struct arch_elf_state *state);
 
+#define elf_read_implies_exec(ex, stk) mips_elf_read_implies_exec(&(ex), stk)
+extern int mips_elf_read_implies_exec(void *elf_ex, int exstack);
+
 #endif /* _ASM_ELF_H */

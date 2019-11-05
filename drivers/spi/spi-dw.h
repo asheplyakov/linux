@@ -3,7 +3,9 @@
 
 #include <linux/io.h>
 #include <linux/scatterlist.h>
+#include <linux/interrupt.h>
 #include <linux/gpio.h>
+#include <asm/mach-baikal/bc.h>
 
 /* Register offsets */
 #define DW_SPI_CTRL0			0x00
@@ -101,7 +103,6 @@ struct dw_spi_dma_ops {
 struct dw_spi {
 	struct spi_master	*master;
 	enum dw_ssi_type	type;
-	char			name[16];
 
 	void __iomem		*regs;
 	unsigned long		paddr;
@@ -123,6 +124,10 @@ struct dw_spi {
 	u8			n_bytes;	/* current is a 1/2 bytes op */
 	u32			dma_width;
 	irqreturn_t		(*transfer_handler)(struct dw_spi *dws);
+	u32			current_freq;	/* frequency in hz */
+
+	 /* Poll-transfer tasklet */
+	struct tasklet_struct	poll_transfer;
 
 	/* DMA info */
 	int			dma_inited;
@@ -141,6 +146,19 @@ struct dw_spi {
 #endif
 };
 
+struct dw_boot_spi {
+	void __iomem *regs;
+	unsigned long paddr;
+
+	struct be_bc	*bc;	/* BE Boot controller to enable the interface */
+	u32	fifo_len;       /* depth of the FIFO buffer */
+	u32	max_freq;       /* max bus freq supported */
+	u32	reg_io_width;   /* DR I/O width in bytes */
+	u32	bus_num;
+	u32	num_cs;         /* supported slave numbers */
+	struct clk			*clk;
+};
+
 static inline u32 dw_readl(struct dw_spi *dws, u32 offset)
 {
 	return __raw_readl(dws->regs + offset);
@@ -151,6 +169,11 @@ static inline u16 dw_readw(struct dw_spi *dws, u32 offset)
 	return __raw_readw(dws->regs + offset);
 }
 
+static inline u32 dw_boot_readl(struct dw_boot_spi *dws, u32 offset)
+{
+	return __raw_readl(dws->regs + offset);
+}
+
 static inline void dw_writel(struct dw_spi *dws, u32 offset, u32 val)
 {
 	__raw_writel(val, dws->regs + offset);
@@ -159,6 +182,11 @@ static inline void dw_writel(struct dw_spi *dws, u32 offset, u32 val)
 static inline void dw_writew(struct dw_spi *dws, u32 offset, u16 val)
 {
 	__raw_writew(val, dws->regs + offset);
+}
+
+static inline void dw_boot_writel(struct dw_boot_spi *dws, u32 offset, u32 val)
+{
+	__raw_writel(val, dws->regs + offset);
 }
 
 static inline u32 dw_read_io_reg(struct dw_spi *dws, u32 offset)
@@ -193,6 +221,16 @@ static inline void spi_enable_chip(struct dw_spi *dws, int enable)
 static inline void spi_set_clk(struct dw_spi *dws, u16 div)
 {
 	dw_writel(dws, DW_SPI_BAUDR, div);
+}
+
+static inline void spi_boot_enable_chip(struct dw_boot_spi *dws, int enable)
+{
+    dw_boot_writel(dws, DW_SPI_SSIENR, (enable ? 1 : 0));
+}
+
+static inline void spi_boot_set_clk(struct dw_boot_spi *dws, u16 div)
+{
+    dw_boot_writel(dws, DW_SPI_BAUDR, div);
 }
 
 /* Disable IRQ bits */

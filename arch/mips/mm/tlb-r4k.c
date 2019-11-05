@@ -61,7 +61,7 @@ void local_flush_tlb_all(void)
 	write_c0_entrylo0(0);
 	write_c0_entrylo1(0);
 
-	entry = read_c0_wired();
+	entry = num_wired_entries();
 
 	/* Blast 'em all away. */
 	if (cpu_has_tlbinv) {
@@ -335,10 +335,12 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 #if defined(CONFIG_PHYS_ADDR_T_64BIT) && defined(CONFIG_CPU_MIPS32)
 #ifdef CONFIG_XPA
 		write_c0_entrylo0(pte_to_entrylo(ptep->pte_high));
-		writex_c0_entrylo0(ptep->pte_low & _PFNX_MASK);
+		if (cpu_has_xpa)
+			writex_c0_entrylo0(ptep->pte_low & _PFNX_MASK);
 		ptep++;
 		write_c0_entrylo1(pte_to_entrylo(ptep->pte_high));
-		writex_c0_entrylo1(ptep->pte_low & _PFNX_MASK);
+		if (cpu_has_xpa)
+			writex_c0_entrylo1(ptep->pte_low & _PFNX_MASK);
 #else
 		write_c0_entrylo0(ptep->pte_high);
 		ptep++;
@@ -376,7 +378,7 @@ void add_wired_entry(unsigned long entrylo0, unsigned long entrylo1,
 	old_ctx = read_c0_entryhi();
 	htw_stop();
 	old_pagemask = read_c0_pagemask();
-	wired = read_c0_wired();
+	wired = num_wired_entries();
 	write_c0_wired(wired + 1);
 	write_c0_index(wired);
 	tlbw_use_hazard();	/* What is the hazard here? */
@@ -439,7 +441,7 @@ __init int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 	htw_stop();
 	old_ctx = read_c0_entryhi();
 	old_pagemask = read_c0_pagemask();
-	wired = read_c0_wired();
+	wired = num_wired_entries();
 	if (--temp_tlb_entry < wired) {
 		printk(KERN_WARNING
 		       "No TLB space left for add_temporary_entry\n");

@@ -1,0 +1,129 @@
+/*
+ * Baikal-T/T1 CNC DAC board device tree
+ *
+ * Copyright (C) 2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/ {
+	/* Reserve memory regions for CMA and NTB */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* Reserve 16MB for CMA-based allocations */
+		cma: buffer@0 {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x01000000 0 0x05000000>;
+			size = <0 0x1000000>;
+			alignment = <0 0x1000000>;
+			reusable; /* specific for CMA */
+		};
+	};
+
+	/* CNC DAC board platform device */
+	cnc {
+		compatible = "cnc,dac", "cnc,board";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		memory-region = <&cma>;
+		board_info = <&shred>;
+		board_addr = <&addr>;
+
+		/* Load-DAC outputs setup in the DAC config registers */
+		ldac-gpios = <&porta 2 GPIO_ACTIVE_HIGH>;
+
+		dac@0 {
+			reg = <0>;
+			dev = <&dac0 &dac1>;
+		};
+	};
+};
+
+&usb {
+	status = "disabled";
+};
+
+&sata {
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
+};
+
+&xgmac {
+	status = "disabled";
+};
+
+&gmac0 {
+	status = "disabled";
+};
+
+&gmac1 {
+	status = "disabled";
+};
+
+/* Board settings devices */
+&i2c1 {
+	status = "okay";
+
+	shred: gpio@21 {
+		compatible = "nxp,pcf8574";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <8>; /* Informative */
+	};
+
+	addr: gpio@23 {
+		compatible = "nxp,pcf8574";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <8>; /* Informative */
+	};
+
+        eeprom@57 {
+                compatible = "atmel,24c32";
+                reg = <0x57>;
+                pagesize = <16>;
+        };
+};
+
+&uart1 {
+	status = "disabled";
+};
+
+/* DA5754 DAC chips */
+&spi0 {
+	status = "okay";
+
+	num-cs = <2>;
+
+	dac0: da5754@0 {
+		/*compatible = "adi,ad5754";*/
+		compatible = "cnc,dac-chip";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+		spi-cpha;
+	};
+
+	dac1: da5754@1 {
+		/*compatible = "adi,ad5754";*/
+		compatible = "cnc,dac-chip";
+		reg = <1>;
+		spi-max-frequency = <5000000>;
+		spi-cpha;
+	};
+};
+
+&spi1 {
+	status = "disabled";
+};

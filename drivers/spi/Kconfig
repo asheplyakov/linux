@@ -75,6 +75,21 @@ config SPI_ATMEL
 	  This selects a driver for the Atmel SPI Controller, present on
 	  many AT32 (AVR32) and AT91 (ARM) chips.
 
+config SPI_AX99100
+	tristate "Asix AX99100 SPI controller"
+	depends on PCI
+	help
+	  Enable support of PCI-SPI function of Asix AX99100 controller.
+
+config SPI_AX99100_I2C
+	bool "i2c-interface support for AX99100"
+	depends on SPI_AX99100 && I2C
+	help
+	  Say yes here to enable the i2c-interface of Asix AX99100 PCI-SPI
+	  controller. This interface is mostly used for I/O operations with
+	  firmware EEPROM, so it provides a limited set of transactions:
+	  SMBus read-byte/write-byte/write-word data.
+
 config SPI_BCM2835
 	tristate "BCM2835 SPI controller"
 	depends on GPIOLIB
@@ -673,6 +688,18 @@ config SPI_DW_MID_DMA
 
 config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
+	depends on SPI_DESIGNWARE
+
+config SPI_DW_MMIO_DMA
+	tristate "Memory-mapped io interface driver for DW SPI core (with DMA)"
+	depends on SPI_DESIGNWARE
+
+config SPI_DW_MMIO_BOOT
+	tristate "Memory-mapped io interface driver for DW SPI-boot core"
+	depends on SPI_DESIGNWARE
+
+config SPI_DW_BOOT
+	tristate "interface driver for DW SPI Boot flash (without GPIO, IRQ)"
 	depends on SPI_DESIGNWARE
 
 #

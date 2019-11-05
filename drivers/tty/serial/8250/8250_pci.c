@@ -1059,7 +1059,7 @@ static int pci_oxsemi_tornado_init(struct pci_dev *dev)
 	return number_uarts;
 }
 
-static int pci_asix_setup(struct serial_private *priv,
+static int pci_moschip_setup(struct serial_private *priv,
 		  const struct pciserial_board *board,
 		  struct uart_8250_port *port, int idx)
 {
@@ -1931,7 +1931,6 @@ pci_wch_ch38x_setup(struct serial_private *priv,
 #define PCI_DEVICE_ID_WCH_CH353_2S1P	0x7053
 #define PCI_VENDOR_ID_AGESTAR		0x5372
 #define PCI_DEVICE_ID_AGESTAR_9375	0x6872
-#define PCI_VENDOR_ID_ASIX		0x9710
 #define PCI_DEVICE_ID_COMMTECH_4224PCIE	0x0020
 #define PCI_DEVICE_ID_COMMTECH_4228PCIE	0x0021
 #define PCI_DEVICE_ID_COMMTECH_4222PCIE	0x0022
@@ -2704,14 +2703,14 @@ static struct pci_serial_quirk pci_serial_quirks[] __refdata = {
 		.setup          = pci_wch_ch38x_setup,
 	},
 	/*
-	 * ASIX devices with FIFO bug
+	 * Asix/MosChip devices with FIFO bug
 	 */
 	{
-		.vendor		= PCI_VENDOR_ID_ASIX,
+		.vendor		= PCI_VENDOR_ID_NETMOS,
 		.device		= PCI_ANY_ID,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_asix_setup,
+		.setup		= pci_moschip_setup,
 	},
 	/*
 	 * Commtech, Inc. Fastcom adapters

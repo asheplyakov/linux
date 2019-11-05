@@ -1046,6 +1046,15 @@
 #define GPIO_INTERRUPT_STATUS_25_ACTIVE                 1
 #define GPIO_INTERRUPT_STATUS_25_RESET                  1
 
+#define PWM_0                                           0x010020
+#define PWM_1                                           0x010024
+#define PWM_2                                           0x010028
+#define PWM_0_HIGH                                      31:20
+#define PWM_0_LOW                                       19:8
+#define PWM_0_STATUS                                    7:0
+#define PWM_0_STATUS_ENABLED                            1
+#define PWM_0_STATUS_DISABLED                           0
+#define PWM_O_STATUS_INTERRUPT_PENDING                  8
 
 #define PANEL_DISPLAY_CTRL                            0x080000
 #define PANEL_DISPLAY_CTRL_RESERVED_1_MASK            31:30

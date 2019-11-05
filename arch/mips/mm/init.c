@@ -30,6 +30,9 @@
 #include <linux/hardirq.h>
 #include <linux/gfp.h>
 #include <linux/kcore.h>
+#include <linux/export.h>
+#include <linux/initrd.h>
+#include <linux/sizes.h>
 
 #include <asm/asm-offsets.h>
 #include <asm/bootinfo.h>
@@ -37,7 +40,6 @@
 #include <asm/cpu.h>
 #include <asm/dma.h>
 #include <asm/kmap_types.h>
-#include <asm/maar.h>
 #include <asm/mmu_context.h>
 #include <asm/sections.h>
 #include <asm/pgtable.h>
@@ -56,6 +58,53 @@
 unsigned long empty_zero_page, zero_page_mask;
 EXPORT_SYMBOL_GPL(empty_zero_page);
 EXPORT_SYMBOL(zero_page_mask);
+
+/*
+ * Print out the kernel virtual memory layout
+ */
+#define MLK(b, t) (void *)b, (void *)t, ((t) - (b)) >> 10
+#define MLM(b, t) (void *)b, (void *)t, ((t) - (b)) >> 20
+#define MLK_ROUNDUP(b, t) (void *)b, (void *)t, DIV_ROUND_UP(((t) - (b)), SZ_1K)
+static void __init mem_print_kmap_info(void)
+{
+#ifdef CONFIG_DEBUG_KERNEL
+	pr_notice("Kernel virtual memory layout:\n"
+		  "    lowmem  : 0x%px - 0x%px  (%4ld MB)\n"
+		  "      .text : 0x%px - 0x%px  (%4td kB)\n"
+		  "      .data : 0x%px - 0x%px  (%4td kB)\n"
+		  "      .init : 0x%px - 0x%px  (%4td kB)\n"
+		  "      .bss  : 0x%px - 0x%px  (%4td kB)\n"
+		  "    vmalloc : 0x%px - 0x%px  (%4ld MB)\n"
+#ifdef CONFIG_HIGHMEM
+		  "    pkmap   : 0x%px - 0x%px  (%4ld MB)\n"
+#endif
+		  "    fixmap  : 0x%px - 0x%px  (%4ld kB)\n",
+		  MLM(PAGE_OFFSET, (unsigned long)high_memory),
+		  MLK_ROUNDUP(_text, _etext),
+		  MLK_ROUNDUP(_sdata, _edata),
+		  MLK_ROUNDUP(__init_begin, __init_end),
+		  MLK_ROUNDUP(__bss_start, __bss_stop),
+		  MLM(VMALLOC_START, VMALLOC_END),
+#ifdef CONFIG_HIGHMEM
+		  MLM(PKMAP_BASE, (PKMAP_BASE) + (LAST_PKMAP)*(PAGE_SIZE)),
+#endif
+		  MLK(FIXADDR_START, FIXADDR_TOP));
+
+	/* Check some fundamental inconsistencies. May add something else? */
+#ifdef CONFIG_HIGHMEM
+	BUILD_BUG_ON(VMALLOC_END < PAGE_OFFSET);
+	BUG_ON(VMALLOC_END < (unsigned long)high_memory);
+	BUILD_BUG_ON((PKMAP_BASE) + (LAST_PKMAP)*(PAGE_SIZE) < PAGE_OFFSET);
+	BUG_ON((PKMAP_BASE) + (LAST_PKMAP)*(PAGE_SIZE) <
+		(unsigned long)high_memory);
+#endif
+	BUILD_BUG_ON(FIXADDR_TOP < PAGE_OFFSET);
+	BUG_ON(FIXADDR_TOP < (unsigned long)high_memory);
+#endif /* CONFIG_DEBUG_KERNEL */
+}
+#undef MLK
+#undef MLM
+#undef MLK_ROUNDUP
 
 /*
  * Not static inline because used by IP27 special magic initialization code
@@ -98,8 +147,10 @@ static void *__kmap_pgprot(struct page *page, unsigned long addr, pgprot_t prot)
 	idx += in_interrupt() ? FIX_N_COLOURS : 0;
 	vaddr = __fix_to_virt(FIX_CMAP_END - idx);
 	pte = mk_pte(page, prot);
-#if defined(CONFIG_PHYS_ADDR_T_64BIT) && defined(CONFIG_CPU_MIPS32)
+#if defined(CONFIG_XPA)
 	entrylo = pte_to_entrylo(pte.pte_high);
+#elif defined(CONFIG_PHYS_ADDR_T_64BIT) && defined(CONFIG_CPU_MIPS32)
+	entrylo = pte.pte_high;
 #else
 	entrylo = pte_to_entrylo(pte_val(pte));
 #endif
@@ -110,11 +161,13 @@ static void *__kmap_pgprot(struct page *page, unsigned long addr, pgprot_t prot)
 	write_c0_entrylo0(entrylo);
 	write_c0_entrylo1(entrylo);
 #ifdef CONFIG_XPA
-	entrylo = (pte.pte_low & _PFNX_MASK);
-	writex_c0_entrylo0(entrylo);
-	writex_c0_entrylo1(entrylo);
+	if (cpu_has_xpa) {
+		entrylo = (pte.pte_low & _PFNX_MASK);
+		writex_c0_entrylo0(entrylo);
+		writex_c0_entrylo1(entrylo);
+	}
 #endif
-	tlbidx = read_c0_wired();
+	tlbidx = num_wired_entries();
 	write_c0_wired(tlbidx + 1);
 	write_c0_index(tlbidx);
 	mtc0_tlbw_hazard();
@@ -143,7 +196,7 @@ void kunmap_coherent(void)
 
 	local_irq_save(flags);
 	old_ctx = read_c0_entryhi();
-	wired = read_c0_wired() - 1;
+	wired = num_wired_entries() - 1;
 	write_c0_wired(wired);
 	write_c0_index(wired);
 	write_c0_entryhi(UNIQUE_ENTRYHI(wired));
@@ -257,7 +310,6 @@ unsigned __weak platform_maar_init(unsigned num_pairs)
 {
 	struct maar_config cfg[BOOT_MEM_MAP_MAX];
 	unsigned i, num_configured, num_cfg = 0;
-	phys_addr_t skip;
 
 	for (i = 0; i < boot_mem_map.nr_map; i++) {
 		switch (boot_mem_map.map[i].type) {
@@ -268,14 +320,14 @@ unsigned __weak platform_maar_init(unsigned num_pairs)
 			continue;
 		}
 
-		skip = 0x10000 - (boot_mem_map.map[i].addr & 0xffff);
-
+		/* Round lower up */
 		cfg[num_cfg].lower = boot_mem_map.map[i].addr;
-		cfg[num_cfg].lower += skip;
+		cfg[num_cfg].lower = (cfg[num_cfg].lower + 0xffff) & ~0xffff;
 
-		cfg[num_cfg].upper = cfg[num_cfg].lower;
-		cfg[num_cfg].upper += boot_mem_map.map[i].size - 1;
-		cfg[num_cfg].upper -= skip;
+		/* Round upper down */
+		cfg[num_cfg].upper = boot_mem_map.map[i].addr +
+					boot_mem_map.map[i].size;
+		cfg[num_cfg].upper = (cfg[num_cfg].upper & ~0xffff) - 1;
 
 		cfg[num_cfg].attrs = MIPS_MAAR_S;
 		num_cfg++;
@@ -354,6 +406,7 @@ void maar_init(void)
 		if (attr & MIPS_MAAR_S)
 			pr_cont(" speculate");
 
+		pr_cont(" maarvh = 0x%x", readx_c0_maar()); //alm
 		pr_cont("\n");
 
 		/* Record the setup for use on secondary CPUs */
@@ -397,7 +450,6 @@ int page_is_ram(unsigned long pagenr)
 void __init paging_init(void)
 {
 	unsigned long max_zone_pfns[MAX_NR_ZONES];
-	unsigned long lastpfn __maybe_unused;
 
 	pagetable_init();
 
@@ -411,17 +463,14 @@ void __init paging_init(void)
 	max_zone_pfns[ZONE_DMA32] = MAX_DMA32_PFN;
 #endif
 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
-	lastpfn = max_low_pfn;
 #ifdef CONFIG_HIGHMEM
 	max_zone_pfns[ZONE_HIGHMEM] = highend_pfn;
-	lastpfn = highend_pfn;
 
 	if (cpu_has_dc_aliases && max_low_pfn != highend_pfn) {
 		printk(KERN_WARNING "This processor doesn't support highmem."
 		       " %ldk highmem ignored\n",
 		       (highend_pfn - max_low_pfn) << (PAGE_SHIFT - 10));
 		max_zone_pfns[ZONE_HIGHMEM] = max_low_pfn;
-		lastpfn = max_low_pfn;
 	}
 #endif
 
@@ -436,6 +485,9 @@ static inline void mem_init_free_highmem(void)
 {
 #ifdef CONFIG_HIGHMEM
 	unsigned long tmp;
+
+	if (cpu_has_dc_aliases)
+		return;
 
 	for (tmp = highstart_pfn; tmp < highend_pfn; tmp++) {
 		struct page *page = pfn_to_page(tmp);
@@ -460,10 +512,13 @@ void __init mem_init(void)
 #endif
 	high_memory = (void *) __va(max_low_pfn << PAGE_SHIFT);
 
+#ifndef CONFIG_MACH_BAIKAL_QEMU
 	maar_init();
+#endif
 	free_all_bootmem();
 	setup_zero_pages();	/* Setup zeroed pages.  */
 	mem_init_free_highmem();
+	mem_print_kmap_info();
 	mem_init_print_info(NULL);
 
 #ifdef CONFIG_64BIT

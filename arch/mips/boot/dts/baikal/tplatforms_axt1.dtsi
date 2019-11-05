@@ -1,0 +1,149 @@
+/*
+ * Baikal-T/T1 Axitech v1 board device tree
+ *
+ * Copyright (C) 2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+&pci {
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
+};
+
+&xgmac {
+	status = "disabled";
+};
+
+&i2c0 {
+	status = "okay";
+
+	control1: gpioexp@22 {
+		compatible = "nxp,pca9535";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&porta>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ngpios = <16>; /* Informative */
+
+		sd_reset {
+			line-name = "sd-reset";
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		ssd_reset {
+			line-name = "ssd-reset";
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		gsm_reset {
+			line-name = "gsm-reset";
+			gpio-hog;
+			gpios = <7 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		rs_iso_reset {
+			line-name = "rs-iso-reset";
+			gpio-hog;
+			gpios = <12 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+	};
+
+	leds: gpio_exp@23 {
+		compatible = "nxp,pca9535";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&porta>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ngpios = <16>; /* Informative */
+	};
+
+	multiports_usbhub: usb2517@2c {
+		compatible = "microchip,usb2517";
+		reg = <0x2c>;
+		/* Disable for now, since hardwired to HIGH level */
+		/*reset-gpios = <&control1 15 GPIO_ACTIVE_LOW>;*/
+
+		self-powered;
+		multi-tt;
+		disable-eop;
+		individual-sensing;
+		individual-port-switching;
+		oc-delay-us = <8000>;
+		non-removable-ports = <1 2 3 4 5>;
+		sp-max-total-current-microamp = <100000>;
+		bp-max-total-current-microamp = <100000>;
+		sp-max-removable-current-microamp = <100000>;
+		bp-max-removable-current-microamp = <100000>;
+		power-on-time-ms = <100>;
+	};
+
+	simmux: simmux@3c {
+		compatible = "ti,txs02326";
+		reg = <0x3c>;
+		reset-gpios = <&control1 7 GPIO_ACTIVE_LOW>;
+	};
+
+	tiadc: ads1000@48 {
+		compatible = "ti,ads1000";
+		reg = <0x48>;
+	};
+};
+
+&uart1 {
+	status = "disabled";
+};
+
+&spi0 {
+	num-cs = <4>;
+
+	axtadc0: axtadc@0 {
+		compatible = "axt,adccpld", "spidev";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+	};
+
+	axtadc1: axtadc@1 {
+		compatible = "axt,adccpld", "spidev";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+	};
+
+	axtadc2: axtadc@2 {
+		compatible = "axt,adccpld", "spidev";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+	};
+
+	axtadc3: axtadc@3 {
+		compatible = "axt,adccpld", "spidev";
+		reg = <3>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+	};
+};
+
+&spi1 {
+	status = "disabled";
+};

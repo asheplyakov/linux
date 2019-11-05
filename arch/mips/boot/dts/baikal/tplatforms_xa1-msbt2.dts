@@ -1,0 +1,67 @@
+/*
+ * Baikal-T1 XA1-MSBT2 debug board device tree
+ *
+ * Copyright (C) 2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include "tplatforms_msbt2.dtsi"
+
+/ {
+	model = "Baikal-T1 XA1-MSBT2 Board";
+	compatible = "baikal,mips", "baikal,baikal-t1-soc", "tplatforms,baikal-msbt2-card", "tplatforms,baikal-xa1-msbt2-board";
+};
+
+&i2c0 {
+	status = "okay";
+
+	test_msbt2_0: gpio@22 {
+		compatible = "ti,tca6424";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <24>; /* Informative */
+	};
+
+	test_msbt2_1: gpio@23 {
+		compatible = "ti,tca6424";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <24>; /* Informative */
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+
+	test_spi0: mt25qu128@0 {
+		compatible = "micron,mt25qu128", "jedec,spi-nor";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+		m25p,fast-read;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <4>;
+
+	test_spi1: mt25qu128@0 {
+		compatible = "micron,mt25qu128", "jedec,spi-nor";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+		m25p,fast-read;
+	};
+};

@@ -1,0 +1,221 @@
+/*
+ * Baikal-T SFBT1 card device tree
+ *
+ * Copyright (C) 2016-2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+#include <dt-bindings/interrupt-controller/mips-gic.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#include "baikal_t_soc.dtsi"
+#include "baikal_mdio.dtsi"
+
+/ {
+	model = "Baikal-T SFBT1 Mezzanine Card";
+	compatible = "baikal,mips", "baikal,baikal-t-soc", "tplatforms,baikal-sfbt1-card";
+
+	chosen {
+		bootargs = "root=/dev/ram rw console=ttyS0,115200 earlyprintk=uart8250,mmio32,0x1F04A000,115200 nohtw";
+		linux,initrd-start = <0 0x01000000>;
+		linux,initrd-end   = <0 0x02000000>;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x00000000 0 0x08000000>,
+		      <0 0x20000000 0 0x60000000>;
+	};
+};
+
+&usb {
+	status = "okay";
+
+	reset-gpio = <&portb 2 GPIO_ACTIVE_LOW>;
+};
+
+&sata {
+	status = "okay";
+};
+
+&pci {
+	status = "okay";
+
+	/* Deassert downstream devices reset pin */
+	reset-gpio = <&control0 15 GPIO_ACTIVE_HIGH>;
+};
+
+&xgmac {
+	status = "okay";
+};
+
+&gmac0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&gmac0_phy>;
+	snps,reset-gp-out;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 10200 1000>;
+
+	gmdio0: gmac0_mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gmac0_phy: ethernet-phy@3 {
+			compatible = "micrel,ksz9031", "ethernet-phy-id0022.1620", "ethernet-phy-ieee802.3-c22";
+			reg = <0x3>;
+
+			txd0-skew-ps = <0>;
+			txd1-skew-ps = <0>;
+			txd2-skew-ps = <0>;
+			txd3-skew-ps = <0>;
+			txc-skew-ps  = <0xff>;
+		};
+	};
+};
+
+&gmac1 {
+	status = "okay";
+	phy-mode = "rgmii-txid";
+	phy-handle = <&gmac1_phy>;
+	snps,reset-gp-out;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 10200 1000>;
+
+	gmdio1: gmac1-mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gmac1_phy: ethernet-phy@3 {
+			compatible = "micrel,ksz9031", "ethernet-phy-id0022.1620", "ethernet-phy-ieee802.3-c22";
+			reg = <0x3>;
+
+			txd0-skew-ps = <0>;
+			txd1-skew-ps = <0>;
+			txd2-skew-ps = <0>;
+			txd3-skew-ps = <0>;
+			txc-skew-ps  = <0xff>;
+		};
+	};
+};
+
+&gpio {
+	status = "okay";
+};
+
+&gpio3 {
+	status = "okay";
+};
+
+&bc {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+
+	control0: gpioexp@20 {
+		compatible = "nxp,pca9535";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&porta>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ngpios = <16>; /* Informative */
+	};
+
+	rtc: rtc@56 {
+		compatible = "abracon,abeoz9s3";
+		reg = <0x56>;
+		trickle-resistor-ohms = <5000>;
+	};
+
+	spd: eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+		pagesize = <8>;
+	};
+
+	nand_usbhub: usbhub@2C {
+		compatible = "microchip,usb2422";
+		reg = <0x2C>;
+	};
+
+	clkgen0: clkgen@68 {
+		compatible = "idt,5p49v59";
+		reg = <0x68>;
+	};
+
+	clkgen1: clkgen@6A {
+		compatible = "idt,5p49v59";
+		reg = <0x6A>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <4>;
+};
+
+&spi2 {
+	status = "okay";
+	num-cs = <1>;
+
+	boot_flash: n25q128a11@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "micron,n25q128a11", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <500000>;
+		m25p,fast-read;
+
+		partition@0 {
+			label = "bootloader";
+			reg = <0x0 0xE0000>;
+			read-only;
+		};
+
+		partition@1 {
+			label = "environment";
+			reg = <0xE0000 0x10000>;
+		};
+
+		partition@2 {
+			label = "information";
+			reg = <0xF0000 0x10000>;
+			read-only;
+		};
+
+		partition@3 {
+			label = "multiimage";
+			reg = <0x100000 0xF00000>;
+			read-only;
+		};
+
+		partition@4 {
+			label = "firmware";
+			reg = <0x0 0x1000000>;
+		};
+	};
+};

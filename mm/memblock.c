@@ -610,24 +610,14 @@ int __init_memblock memblock_add_node(phys_addr_t base, phys_addr_t size,
 	return memblock_add_range(&memblock.memory, base, size, nid, 0);
 }
 
-static int __init_memblock memblock_add_region(phys_addr_t base,
-						phys_addr_t size,
-						int nid,
-						unsigned long flags)
-{
-	struct memblock_type *type = &memblock.memory;
-
-	memblock_dbg("memblock_add: [%#016llx-%#016llx] flags %#02lx %pF\n",
-		     (unsigned long long)base,
-		     (unsigned long long)base + size - 1,
-		     flags, (void *)_RET_IP_);
-
-	return memblock_add_range(type, base, size, nid, flags);
-}
-
 int __init_memblock memblock_add(phys_addr_t base, phys_addr_t size)
 {
-	return memblock_add_region(base, size, MAX_NUMNODES, 0);
+	phys_addr_t end = base + size - 1;
+
+	memblock_dbg("memblock_add: [%pa-%pa] %pF\n",
+		     &base, &end, (void *)_RET_IP_);
+
+	return memblock_add_range(&memblock.memory, base, size, MAX_NUMNODES, 0);
 }
 
 /**
@@ -738,24 +728,14 @@ int __init_memblock memblock_free(phys_addr_t base, phys_addr_t size)
 	return memblock_remove_range(&memblock.reserved, base, size);
 }
 
-static int __init_memblock memblock_reserve_region(phys_addr_t base,
-						   phys_addr_t size,
-						   int nid,
-						   unsigned long flags)
-{
-	struct memblock_type *type = &memblock.reserved;
-
-	memblock_dbg("memblock_reserve: [%#016llx-%#016llx] flags %#02lx %pF\n",
-		     (unsigned long long)base,
-		     (unsigned long long)base + size - 1,
-		     flags, (void *)_RET_IP_);
-
-	return memblock_add_range(type, base, size, nid, flags);
-}
-
 int __init_memblock memblock_reserve(phys_addr_t base, phys_addr_t size)
 {
-	return memblock_reserve_region(base, size, MAX_NUMNODES, 0);
+	phys_addr_t end = base + size - 1;
+
+	memblock_dbg("memblock_reserve: [%pa-%pa] %pF\n",
+		     &base, &end, (void *)_RET_IP_);
+
+	return memblock_add_range(&memblock.reserved, base, size, MAX_NUMNODES, 0);
 }
 
 /**
@@ -822,6 +802,29 @@ int __init_memblock memblock_mark_mirror(phys_addr_t base, phys_addr_t size)
 	return memblock_setclr_flag(base, size, 1, MEMBLOCK_MIRROR);
 }
 
+/**
+ * memblock_mark_nomap - Mark a memory region with flag MEMBLOCK_NOMAP.
+ * @base: the base phys addr of the region
+ * @size: the size of the region
+ *
+ * Return 0 on success, -errno on failure.
+ */
+int __init_memblock memblock_mark_nomap(phys_addr_t base, phys_addr_t size)
+{
+	return memblock_setclr_flag(base, size, 1, MEMBLOCK_NOMAP);
+}
+
+/**
+ * memblock_clear_nomap - Clear flag MEMBLOCK_NOMAP for a specified region.
+ * @base: the base phys addr of the region
+ * @size: the size of the region
+ *
+ * Return 0 on success, -errno on failure.
+ */
+int __init_memblock memblock_clear_nomap(phys_addr_t base, phys_addr_t size)
+{
+	return memblock_setclr_flag(base, size, 0, MEMBLOCK_NOMAP);
+}
 
 /**
  * __next_reserved_mem_region - next function for for_each_reserved_region()
@@ -837,7 +840,7 @@ void __init_memblock __next_reserved_mem_region(u64 *idx,
 {
 	struct memblock_type *type = &memblock.reserved;
 
-	if (*idx >= 0 && *idx < type->cnt) {
+	if (*idx < type->cnt) {
 		struct memblock_region *r = &type->regions[*idx];
 		phys_addr_t base = r->base;
 		phys_addr_t size = r->size;
@@ -911,6 +914,10 @@ void __init_memblock __next_mem_range(u64 *idx, int nid, ulong flags,
 
 		/* if we want mirror memory skip non-mirror memory regions */
 		if ((flags & MEMBLOCK_MIRROR) && !memblock_is_mirror(m))
+			continue;
+
+		/* skip nomap memory unless we were asked for it explicitly */
+		if (!(flags & MEMBLOCK_NOMAP) && memblock_is_nomap(m))
 			continue;
 
 		if (!type_b) {
@@ -1000,7 +1007,10 @@ void __init_memblock __next_mem_range_rev(u64 *idx, int nid, ulong flags,
 
 	if (*idx == (u64)ULLONG_MAX) {
 		idx_a = type_a->cnt - 1;
-		idx_b = type_b->cnt;
+		if (type_b != NULL)
+			idx_b = type_b->cnt;
+		else
+			idx_b = 0;
 	}
 
 	for (; idx_a >= 0; idx_a--) {
@@ -1022,6 +1032,10 @@ void __init_memblock __next_mem_range_rev(u64 *idx, int nid, ulong flags,
 		if ((flags & MEMBLOCK_MIRROR) && !memblock_is_mirror(m))
 			continue;
 
+		/* skip nomap memory unless we were asked for it explicitly */
+		if (!(flags & MEMBLOCK_NOMAP) && memblock_is_nomap(m))
+			continue;
+
 		if (!type_b) {
 			if (out_start)
 				*out_start = m_start;
@@ -1029,7 +1043,7 @@ void __init_memblock __next_mem_range_rev(u64 *idx, int nid, ulong flags,
 				*out_end = m_end;
 			if (out_nid)
 				*out_nid = m_nid;
-			idx_a++;
+			idx_a--;
 			*idx = (u32)idx_a | (u64)idx_b << 32;
 			return;
 		}
@@ -1277,14 +1291,14 @@ static void * __init memblock_virt_alloc_internal(
 again:
 	alloc = memblock_find_in_range_node(size, align, min_addr, max_addr,
 					    nid, flags);
-	if (alloc)
+	if (alloc && !memblock_reserve(alloc, size))
 		goto done;
 
 	if (nid != NUMA_NO_NODE) {
 		alloc = memblock_find_in_range_node(size, align, min_addr,
 						    max_addr, NUMA_NO_NODE,
 						    flags);
-		if (alloc)
+		if (alloc && !memblock_reserve(alloc, size))
 			goto done;
 	}
 
@@ -1302,7 +1316,6 @@ again:
 
 	return NULL;
 done:
-	memblock_reserve(alloc, size);
 	ptr = phys_to_virt(alloc);
 	memset(ptr, 0, size);
 
@@ -1519,6 +1532,15 @@ int __init_memblock memblock_is_memory(phys_addr_t addr)
 	return memblock_search(&memblock.memory, addr) != -1;
 }
 
+int __init_memblock memblock_is_map_memory(phys_addr_t addr)
+{
+	int i = memblock_search(&memblock.memory, addr);
+
+	if (i == -1)
+		return false;
+	return !memblock_is_nomap(&memblock.memory.regions[i]);
+}
+
 #ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
 int __init_memblock memblock_search_pfn_nid(unsigned long pfn,
 			 unsigned long *start_pfn, unsigned long *end_pfn)
@@ -1667,6 +1689,9 @@ void __init_memblock __memblock_dump_all(void)
 
 	memblock_dump(&memblock.memory, "memory");
 	memblock_dump(&memblock.reserved, "reserved");
+#ifdef CONFIG_HAVE_MEMBLOCK_PHYS_MAP
+	memblock_dump(&memblock.physmem, "physmem");
+#endif
 }
 
 void __init memblock_allow_resize(void)

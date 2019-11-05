@@ -1,0 +1,20 @@
+/*
+ * Baikal-T1 CNC IN v3 MSBT2 board device tree
+ *
+ * Copyright (C) 2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include "tplatforms_msbt2.dtsi"
+#include "tplatforms_cncin3.dtsi"
+
+/ {
+	model = "Baikal-T1 CNC IN v3 MSBT2 Board";
+	compatible = "baikal,mips", "baikal,baikal-t1-soc", "tplatforms,baikal-msbt2-card", "tplatforms,baikal-cncin3-msbt2-board";
+};

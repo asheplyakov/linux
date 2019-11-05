@@ -1,0 +1,267 @@
+/*
+ * Baikal-T1 mITX board device tree
+ *
+ * Copyright (C) 2017-2018 T-platforms JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/mips-gic.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#include  "baikal_t1_soc.dtsi"
+#include  "baikal_mdio.dtsi"
+
+/ {
+	model = "Baikal-T1 mITX board";
+	compatible = "baikal,mips", "baikal,baikal-t1-soc", "tplatforms,baikal-mitx-board";
+
+	chosen {
+		bootargs = "root=/dev/ram rw console=ttyS0,115200 earlyprintk=uart8250,mmio32,0x1F04A000,115200 nohtw";
+		linux,initrd-start = <0 0x01000000>;
+		linux,initrd-end   = <0 0x02000000>;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x00000000 0 0x08000000>,
+		      <0 0x20000000 0 0x60000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		display_reserved: framebuffer@0x07000000 {
+			reg = <0 0x07000000 0 0x01000000>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		hdd {
+			label = "Disk Activity";
+			gpios = <&porta 18 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "disk-activity";
+		};
+	};
+
+	platform_setting {
+		sm750,dvi_ddc = <30 31>;
+		sm750,crt_ddc = <17 18>;
+	};
+};
+
+&usb {
+	status = "okay";
+
+	reset-gpio = <&porta 13 GPIO_ACTIVE_LOW>;
+};
+
+&sata {
+	status = "okay";
+};
+
+&pci {
+	status = "okay";
+
+	/* Reassert sm750 GPU reset */
+	reset-gpio = <&porta 12 GPIO_ACTIVE_LOW>;
+};
+
+&xgmac {
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
+};
+
+&gmac0 {
+	status = "okay";
+	phy-mode = "rgmii-rxid";
+	phy-handle = <&gmac0_phy>;
+	snps,reset-gp-out;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 11000 31000>;
+
+	gmdio0: gmac0_mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gmac0_phy: ethernet-phy@1 {
+			compatible = "realtek,rtl8211e", "ethernet-phy-id001c.c915";
+			reg = <0x1>;
+		};
+	};
+};
+
+&gmac1 {
+	status = "disabled";
+};
+
+&gpio {
+	status = "okay";
+};
+
+&gpio3 {
+	status = "okay";
+};
+
+&bc {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "disabled";
+};
+
+&i2c1 {
+	status = "okay";
+
+	bmc: bmc@8 {
+		compatible = "tp,bt-bmc";
+		reg = <0x08>;
+	};
+
+	shred: gpio@21 {
+		compatible = "nxp,pcf8574";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&porta>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ngpios = <8>; /* Informative */
+	};
+
+	rtc: rtc@51 {
+		compatible = "nxp,pcf2129", "nxp,pcf2127";
+		reg = <0x51>;
+	};
+
+	fru: eeprom@53 {
+		compatible = "atmel,24c32";
+		pagesize = <32>;
+		reg = <0x53>;
+	};
+
+	usbhub_eeprom: eeprom@50 {
+		compatible = "atmel,24c02";
+		pagesize = <8>;
+		reg = <0x50>;
+	};
+
+	multiports_usbhub: usb2517@2c {
+		compatible = "microchip,usb2517";
+		reg = <0x2c>;
+
+		/* Configs are set by U-boot (if not see doc for details) */
+		skip-config;
+		/*reset-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
+		self-powered;
+		multi-tt;
+		disable-eop;
+		individual-sensing;
+		individual-port-switching;
+		oc-delay-us = <8000>;
+		non-removable-ports = <1>;
+		sp-max-total-current-microamp = <100000>;
+		bp-max-total-current-microamp = <100000>;
+		sp-max-removable-current-microamp = <100000>;
+		bp-max-removable-current-microamp = <100000>;
+		power-on-time-ms = <100>;*/
+        };
+
+	clkgen0: clkgen@68 {
+		compatible = "idt,5p49v59";
+		reg = <0x68>;
+	};
+
+	clkgen1: clkgen@6A {
+		compatible = "idt,5p49v59";
+		reg = <0x6A>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&porta 14 GPIO_ACTIVE_LOW>, <0>;
+
+	mmc-slot@0 {
+		compatible = "mmc-spi-slot";
+		reg = <0>;
+		voltage-ranges = <2000 3600>;
+		spi-max-frequency = <15000000>;
+		/* Card-Detect GPIO (not working at the moment) */
+		/* gpios = <&porta 15 GPIO_ACTIVE_LOW>; */
+	};
+};
+
+&spi1 {
+	status = "disabled";
+};
+
+&spi2 {
+	status = "okay";
+	num-cs = <1>;
+
+	boot_flash: n25q128a11@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "micron,n25q128a11", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <500000>;
+		m25p,fast-read;
+
+		partition@0 {
+			label = "bootloader";
+			reg = <0x0 0xE0000>;
+			read-only;
+		};
+
+		partition@1 {
+			label = "environment";
+			reg = <0xE0000 0x10000>;
+		};
+
+		partition@2 {
+			label = "information";
+			reg = <0xF0000 0x10000>;
+			read-only;
+		};
+
+		partition@3 {
+			label = "multiimage";
+			reg = <0x100000 0xF00000>;
+			read-only;
+		};
+
+		partition@4 {
+			label = "firmware";
+			reg = <0x0 0x1000000>;
+		};
+	};
+};
+
+&pvt {
+	status = "okay";
+};
+
+&efuse {
+	status = "okay";
+};

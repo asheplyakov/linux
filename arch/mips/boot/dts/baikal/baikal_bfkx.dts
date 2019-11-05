@@ -1,0 +1,255 @@
+/*
+ * Baikal-T1 BFKX (BFK1.6+) evaluation board device tree
+ *
+ * Copyright (C) 2014-2017  Baikal Electronics JSC
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/mips-gic.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#include  "baikal_t1_soc.dtsi"
+#include  "baikal_mdio.dtsi"
+
+/ {
+	model = "Baikal-T1 BFKX evaluation board";
+	compatible = "baikal,mips", "baikal,baikal-t1-soc", "baikal,baikal-bfk-eval-board";
+
+	chosen {
+		bootargs = "root=/dev/ram rw rootwait console=ttyS0,115200n8 earlyprintk=uart8250,mmio32,0x1F04A000,115200 maxcpus=2 nohtw";
+		linux,initrd-start = <0 0x01000000>;
+		linux,initrd-end   = <0 0x02000000>;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x00000000 0 0x08000000>,
+		      <0 0x20000000 0 0xC0000000>;
+	};
+};
+
+&usb {
+	status = "okay";
+};
+
+&sata {
+	status = "okay";
+};
+
+&pci {
+	status = "okay";
+};
+
+&xgmac {
+	status = "okay";
+};
+
+&gmac0 {
+	status = "okay";
+	phy-mode = "rgmii-txid";
+	phy-handle = <&gmac0_phy>;
+	snps,reset-gp-out;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 10200 1000>;
+
+	gmdio0: gmac0_mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gmac0_phy: ethernet-phy@3 {
+			compatible = "micrel,ksz9031", "ethernet-phy-id0022.1620", "ethernet-phy-ieee802.3-c22";
+			reg = <0x3>;
+
+			txd0-skew-ps = <0>;
+			txd1-skew-ps = <0>;
+			txd2-skew-ps = <0>;
+			txd3-skew-ps = <0>;
+			txc-skew-ps  = <0xff>;
+		};
+	};
+};
+
+&gmac1 {
+	status = "okay";
+	phy-mode = "rgmii-txid";
+	phy-handle = <&gmac1_phy>;
+	snps,reset-gp-out;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 10200 1000>;
+
+	gmdio1: gmac1-mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gmac1_phy: ethernet-phy@3 {
+			compatible = "micrel,ksz9031", "ethernet-phy-id0022.1620", "ethernet-phy-ieee802.3-c22";
+			reg = <0x3>;
+
+			txd0-skew-ps = <0>;
+			txd1-skew-ps = <0>;
+			txd2-skew-ps = <0>;
+			txd3-skew-ps = <0>;
+			txc-skew-ps  = <0xff>;
+		};
+	};
+};
+
+&gpio {
+	status = "okay";
+};
+
+&gpio3 {
+	status = "okay";
+};
+
+&i2c0 {
+	codec@18 {
+		compatible = "tlv320aic310x";
+		reg = <0x18>;
+	};
+
+	gpioexp: gpioexp@20 {
+		compatible = "nxp,pca9500";
+		#gpio-cells = <2>;
+		reg = <0x20>;
+		gpio-controller;
+	};
+
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		pagesize = <16>;
+		reg = <0x50>;
+	};
+};
+
+&i2c1 {
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		pagesize = <16>;
+		reg = <0x50>;
+	};
+
+	eeprom@51 {
+		compatible = "atmel,24c02";
+		pagesize = <16>;
+		reg = <0x51>;
+	};
+
+	rtc@56 {
+		compatible = "abracon,abeoz9s3";
+		reg = <0x56>;
+		trickle-resistor-ohms = <5000>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&bc {
+	status = "okay";
+};
+
+&spi0 {
+	num-cs = <3>;
+	cs-gpios = <&porta 23 GPIO_ACTIVE_LOW>,
+			   <&porta 28 GPIO_ACTIVE_LOW>,
+			   <&porta 29 GPIO_ACTIVE_LOW>;
+
+	status = "okay";
+
+	flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "okay";
+		compatible = "micron,n25q256a", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		/* m25p,fast-read; */
+
+		mtd@00000000 {
+			label = "flash0";
+			reg = <0x00000000 0x02000000>;
+		};
+	};
+
+	flash@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "okay";
+		compatible = "micron,n25q256a", "jedec,spi-nor";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+		/* m25p,fast-read; */
+
+		mtd@00000000 {
+			label = "flash1";
+			reg = <0x00000000 0x02000000>;
+		};
+	};
+};
+
+&spi1 {
+	num-cs = <1>;
+	cs-gpios = <&porta 17 GPIO_ACTIVE_HIGH>;
+
+	status = "okay";
+};
+
+&spi2 {
+	num-cs = <1>;
+	status = "okay";
+
+	boot_flash: n25q128a11@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "micron,n25q128a11", "jedec,spi-nor";
+		spi-max-frequency = <500000>;
+		m25p,fast-read;
+		reg = <0>;
+
+		partition@0 {
+			label = "bootloader";
+			reg = <0x0 0xE0000>;
+			read-only;
+		};
+
+		partition@1 {
+			label = "environment";
+			reg = <0xE0000 0x10000>;
+		};
+
+		partition@2 {
+			label = "information";
+			reg = <0xF0000 0x10000>;
+			read-only;
+		};
+
+		partition@3 {
+			label = "multiimage";
+			reg = <0x100000 0xF00000>;
+			read-only;
+		};
+
+		partition@4 {
+			label = "firmware";
+			reg = <0x0 0x1000000>;
+		};
+	};
+};
+
+&pvt {
+	status = "okay";
+};
+
+&efuse {
+	status = "okay";
+};

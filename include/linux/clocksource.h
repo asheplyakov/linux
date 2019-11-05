@@ -200,6 +200,8 @@ extern int
 __clocksource_register_scale(struct clocksource *cs, u32 scale, u32 freq);
 extern void
 __clocksource_update_freq_scale(struct clocksource *cs, u32 scale, u32 freq);
+extern void
+__clocksource_change_freq(struct clocksource *cs, u32 rating, u32 freq);
 
 /*
  * Don't call this unless you are a default clocksource
@@ -230,6 +232,10 @@ static inline void __clocksource_update_freq_khz(struct clocksource *cs, u32 khz
 	__clocksource_update_freq_scale(cs, 1000, khz);
 }
 
+static inline void __clocksource_change_freq_hz(struct clocksource *cs, u32 rating, u32 hz)
+{
+	__clocksource_change_freq(cs, rating, hz);
+}
 
 extern int timekeeping_notify(struct clocksource *clock);
 

@@ -1,6 +1,14 @@
 #ifndef LYNXDRV_H_
 #define LYNXDRV_H_
 
+#include <linux/i2c.h>
+#include <linux/i2c-algo-bit.h>
+#include <linux/pci.h>
+#include <linux/dmaengine.h>
+#include <linux/spinlock.h>
+#include <linux/gpio/consumer.h>
+#include <linux/backlight.h>
+
 #define FB_ACCEL_SMI 0xab
 
 #define MHZ(x) ((x) * 1000000)
@@ -47,6 +55,25 @@ struct init_status {
 	ushort resetMemory;
 };
 
+struct sm750_ddc {
+	struct i2c_adapter ddc_adapter;
+	struct i2c_algo_bit_data ddc_algo;
+	void __iomem *regs;
+	unsigned char i2c_scl_pin;
+	unsigned char i2c_sda_pin;
+	bool ddc_registered;
+};
+
+struct sm750_bl {
+	struct backlight_device *bd;
+	struct gpio_desc *up;
+	struct gpio_desc *down;
+	unsigned char pwm;
+	unsigned char count;
+	spinlock_t count_lock;
+	bool bl_registered;
+};
+
 struct lynx_accel {
 	/* base virtual address of DPR registers */
 	volatile unsigned char __iomem *dprBase;
@@ -78,6 +105,8 @@ struct sm750_dev {
 	struct pci_dev *pdev;
 	struct fb_info *fbinfo[2];
 	struct lynx_accel accel;
+	struct sm750_ddc ddc[2];	/* primary and secondary DDC */
+	struct sm750_bl bl;
 	int accel_off;
 	int dual;
 	int mtrr_off;
@@ -106,6 +135,8 @@ struct sm750_dev {
 	 * 3: both ctrc hw cursor enabled
 	 */
 	int hwCursor;
+	struct dma_chan *dma_chan;
+	dma_cookie_t cookie;
 };
 
 struct lynx_cursor {
@@ -199,4 +230,18 @@ int hw_sm750_pan_display(struct lynxfb_crtc *crtc,
 			 const struct fb_var_screeninfo *var,
 			 const struct fb_info *info);
 
+int sm750_setup_ddc(struct sm750_dev *);
+void sm750_remove_ddc(struct sm750_dev *);
+char *sm750_ddc_read_edid(struct i2c_adapter *);
+
+int sm750_setup_bl(struct sm750_dev *sm750_dev);
+void sm750_remove_bl(struct sm750_dev *sm750_dev);
+
+#ifdef CONFIG_SM750_DMA
+int smi_setup_dma(struct sm750_dev *sm750_dev);
+void smi_release_dma(struct sm750_dev *sm750_dev);
+#else
+#define smi_setup_dma(d)	0
+#define smi_release_dma(d)
+#endif
 #endif

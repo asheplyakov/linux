@@ -30,13 +30,11 @@
 
 /* Slave spi_dev related */
 struct chip_data {
-	u8 cs;			/* chip select pin */
 	u8 tmode;		/* TR/TO/RO/EEPROM */
 	u8 type;		/* SPI/SSP/MicroWire */
 
 	u8 poll_mode;		/* 1 means use poll mode */
 
-	u8 enable_dma;
 	u16 clk_div;		/* baud rate divider */
 	u32 speed_hz;		/* baud rate */
 	void (*cs_control)(u32 command);
@@ -107,9 +105,9 @@ static const struct file_operations dw_spi_regs_ops = {
 
 static int dw_spi_debugfs_init(struct dw_spi *dws)
 {
-	char name[128];
+	char name[32];
 
-	snprintf(name, 128, "dw_spi-%s", dev_name(&dws->master->dev));
+	snprintf(name, 32, "dw_spi%d", dws->master->bus_num);
 	dws->debugfs = debugfs_create_dir(name, NULL);
 	if (!dws->debugfs)
 		return -ENOMEM;
@@ -194,6 +192,9 @@ static void dw_writer(struct dw_spi *dws)
 		dw_write_io_reg(dws, DW_SPI_DR, txw);
 		dws->tx += dws->n_bytes;
 	}
+
+	/* Make sure the target chip is selected even if GPIO-CS is used */
+	dw_spi_set_cs(dws->master->cur_msg->spi, 0);
 }
 
 static void dw_reader(struct dw_spi *dws)
@@ -267,16 +268,17 @@ static irqreturn_t dw_spi_irq(int irq, void *dev_id)
 	return dws->transfer_handler(dws);
 }
 
-/* Must be called inside pump_transfers() */
-static int poll_transfer(struct dw_spi *dws)
+static void dw_spi_poll_transfer(unsigned long data)
 {
+	struct dw_spi *dws = (struct dw_spi *)data;
+
 	do {
 		dw_writer(dws);
 		dw_reader(dws);
 		cpu_relax();
 	} while (dws->rx_end > dws->rx);
 
-	return 0;
+	spi_finalize_current_transfer(dws->master);
 }
 
 static int dw_spi_transfer_one(struct spi_master *master,
@@ -286,7 +288,6 @@ static int dw_spi_transfer_one(struct spi_master *master,
 	struct chip_data *chip = spi_get_ctldata(spi);
 	u8 imask = 0;
 	u16 txlevel = 0;
-	u16 clk_div;
 	u32 cr0;
 	int ret;
 
@@ -301,13 +302,13 @@ static int dw_spi_transfer_one(struct spi_master *master,
 	spi_enable_chip(dws, 0);
 
 	/* Handle per transfer options for bpw and speed */
-	if (transfer->speed_hz != chip->speed_hz) {
-		/* clk_div doesn't support odd number */
-		clk_div = (dws->max_freq / transfer->speed_hz + 1) & 0xfffe;
-
-		chip->speed_hz = transfer->speed_hz;
-		chip->clk_div = clk_div;
-
+	if (transfer->speed_hz != dws->current_freq) {
+		if (transfer->speed_hz != chip->speed_hz) {
+			/* clk_div doesn't support odd number */
+			chip->clk_div = (DIV_ROUND_UP(dws->max_freq, transfer->speed_hz) + 1) & 0xfffe;
+			chip->speed_hz = transfer->speed_hz;
+		}
+		dws->current_freq = transfer->speed_hz;
 		spi_set_clk(dws, chip->clk_div);
 	}
 	if (transfer->bits_per_word == 8) {
@@ -322,7 +323,7 @@ static int dw_spi_transfer_one(struct spi_master *master,
 	/* Default SPI mode is SCPOL = 0, SCPH = 0 */
 	cr0 = (transfer->bits_per_word - 1)
 		| (chip->type << SPI_FRF_OFFSET)
-		| (spi->mode << SPI_MODE_OFFSET)
+		| ((spi->mode & SPI_MODE_3) << SPI_MODE_OFFSET)
 		| (chip->tmode << SPI_TMOD_OFFSET);
 
 	/*
@@ -378,10 +379,9 @@ static int dw_spi_transfer_one(struct spi_master *master,
 		ret = dws->dma_ops->dma_transfer(dws, transfer);
 		if (ret < 0)
 			return ret;
+	} else if (chip->poll_mode) {
+		tasklet_schedule(&dws->poll_transfer);
 	}
-
-	if (chip->poll_mode)
-		return poll_transfer(dws);
 
 	return 1;
 }
@@ -400,6 +400,7 @@ static void dw_spi_handle_err(struct spi_master *master,
 /* This may be called twice for each spi dev */
 static int dw_spi_setup(struct spi_device *spi)
 {
+	struct dw_spi *dws = spi_master_get_devdata(spi->master);
 	struct dw_spi_chip *chip_info = NULL;
 	struct chip_data *chip;
 	int ret;
@@ -428,7 +429,10 @@ static int dw_spi_setup(struct spi_device *spi)
 		chip->type = chip_info->type;
 	}
 
-	chip->tmode = 0; /* Tx & Rx */
+	if (dws->irq < 0)
+		chip->poll_mode = true;
+
+	chip->tmode = SPI_TMOD_TR;
 
 	if (gpio_is_valid(spi->cs_gpio)) {
 		ret = gpio_direction_output(spi->cs_gpio,
@@ -487,12 +491,14 @@ int dw_spi_add_host(struct device *dev, struct dw_spi *dws)
 	dws->type = SSI_MOTO_SPI;
 	dws->dma_inited = 0;
 	dws->dma_addr = (dma_addr_t)(dws->paddr + DW_SPI_DR);
-	snprintf(dws->name, sizeof(dws->name), "dw_spi%d", dws->bus_num);
 
-	ret = request_irq(dws->irq, dw_spi_irq, IRQF_SHARED, dws->name, master);
-	if (ret < 0) {
-		dev_err(dev, "can not get IRQ\n");
-		goto err_free_master;
+	if (dws->irq >= 0) {
+		ret = request_irq(dws->irq, dw_spi_irq, IRQF_SHARED, dev_name(dev),
+				  master);
+		if (ret < 0) {
+			dev_err(dev, "can not get IRQ\n");
+			goto err_free_master;
+		}
 	}
 
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP;
@@ -506,6 +512,8 @@ int dw_spi_add_host(struct device *dev, struct dw_spi *dws)
 	master->handle_err = dw_spi_handle_err;
 	master->max_speed_hz = dws->max_freq;
 	master->dev.of_node = dev->of_node;
+
+	tasklet_init(&dws->poll_transfer, dw_spi_poll_transfer, (unsigned long)dws);
 
 	/* Basic HW init */
 	spi_hw_init(dev, dws);
@@ -534,7 +542,8 @@ err_dma_exit:
 	if (dws->dma_ops && dws->dma_ops->dma_exit)
 		dws->dma_ops->dma_exit(dws);
 	spi_enable_chip(dws, 0);
-	free_irq(dws->irq, master);
+	if (dws->irq >= 0)
+		free_irq(dws->irq, master);
 err_free_master:
 	spi_master_put(master);
 	return ret;
@@ -550,7 +559,8 @@ void dw_spi_remove_host(struct dw_spi *dws)
 
 	spi_shutdown_chip(dws);
 
-	free_irq(dws->irq, dws->master);
+	if (dws->irq >= 0)
+		free_irq(dws->irq, dws->master);
 }
 EXPORT_SYMBOL_GPL(dw_spi_remove_host);
 

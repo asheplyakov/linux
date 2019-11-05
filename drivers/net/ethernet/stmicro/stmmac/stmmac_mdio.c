@@ -123,6 +123,98 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
 	return stmmac_mdio_busy_wait(priv->ioaddr, mii_address);
 }
 
+#if defined(CONFIG_STMMAC_PLATFORM)
+#if defined(CONFIG_OF)
+/**
+ * stmmac_mdio_reset_gpio_api()
+ * @prib: stmmac private data structure
+ * Description: reset the MII bus via GPIO API
+ */
+static int stmmac_mdio_reset_gpio_api(struct stmmac_priv *priv)
+{
+	struct stmmac_mdio_bus_data *data = priv->plat->mdio_bus_data;
+	struct device_node *np = priv->device->of_node;
+	int ret;
+
+	if (data->reset_gpio < 0) {
+		data->reset_gpio = of_get_named_gpio(np, "snps,reset-gpio", 0);
+		if (data->reset_gpio < 0)
+			return data->reset_gpio;
+
+		ret = gpio_request(data->reset_gpio, "mdio-reset");
+		if (ret)
+			return ret;
+
+		data->active_low = of_property_read_bool(np,
+					"snps,reset-active-low");
+		of_property_read_u32_array(np,
+			"snps,reset-delays-us", data->delays, 3);
+	}
+
+	gpio_direction_output(data->reset_gpio,
+			      data->active_low ? 1 : 0);
+	if (data->delays[0])
+		msleep(DIV_ROUND_UP(data->delays[0], 1000));
+
+	gpio_set_value(data->reset_gpio, data->active_low ? 0 : 1);
+	if (data->delays[1])
+		msleep(DIV_ROUND_UP(data->delays[1], 1000));
+
+	gpio_set_value(data->reset_gpio, data->active_low ? 1 : 0);
+	if (data->delays[2])
+		msleep(DIV_ROUND_UP(data->delays[2], 1000));
+
+	return 0;
+}
+
+/**
+ * stmmac_mdio_reset_gp_out()
+ * @prib: stmmac private data structure
+ * Description: reset the MII bus via MAC GP out pin
+ */
+static int stmmac_mdio_reset_gp_out(struct stmmac_priv *priv)
+{
+	struct stmmac_mdio_bus_data *data = priv->plat->mdio_bus_data;
+	struct device_node *np = priv->device->of_node;
+	u32 value, high, low;
+
+	if (!data->reset_gp_out) {
+		data->reset_gp_out = of_property_read_bool(np,
+					"snps,reset-gp-out");
+		if (!data->reset_gp_out)
+			return -ENODEV;
+
+		data->active_low = of_property_read_bool(np,
+					"snps,reset-active-low");
+		of_property_read_u32_array(np,
+			"snps,reset-delays-us", data->delays, 3);
+	}
+
+	value = readl(priv->ioaddr + MAC_GPIO);
+	if (data->active_low) {
+		high = value | MAC_GPIO_GPO0;
+		low = value & ~MAC_GPIO_GPO0;
+	} else {
+		high = value & ~MAC_GPIO_GPO0;
+		low = value | MAC_GPIO_GPO0;
+	}
+
+	writel(high, priv->ioaddr + MAC_GPIO);
+	if (data->delays[0])
+		msleep(DIV_ROUND_UP(data->delays[0], 1000));
+
+	writel(low, priv->ioaddr + MAC_GPIO);
+	if (data->delays[1])
+		msleep(DIV_ROUND_UP(data->delays[1], 1000));
+
+	writel(high, priv->ioaddr + MAC_GPIO);
+	if (data->delays[2])
+		msleep(DIV_ROUND_UP(data->delays[2], 1000));
+
+	return 0;
+}
+#endif
+
 /**
  * stmmac_mdio_reset
  * @bus: points to the mii_bus structure
@@ -130,7 +222,6 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
  */
 int stmmac_mdio_reset(struct mii_bus *bus)
 {
-#if IS_ENABLED(CONFIG_STMMAC_PLATFORM)
 	struct net_device *ndev = bus->priv;
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	unsigned int mii_address = priv->hw->mii.addr;
@@ -138,38 +229,9 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 
 #ifdef CONFIG_OF
 	if (priv->device->of_node) {
-
-		if (data->reset_gpio < 0) {
-			struct device_node *np = priv->device->of_node;
-			if (!np)
-				return 0;
-
-			data->reset_gpio = of_get_named_gpio(np,
-						"snps,reset-gpio", 0);
-			if (data->reset_gpio < 0)
-				return 0;
-
-			data->active_low = of_property_read_bool(np,
-						"snps,reset-active-low");
-			of_property_read_u32_array(np,
-				"snps,reset-delays-us", data->delays, 3);
-
-			if (gpio_request(data->reset_gpio, "mdio-reset"))
-				return 0;
-		}
-
-		gpio_direction_output(data->reset_gpio,
-				      data->active_low ? 1 : 0);
-		if (data->delays[0])
-			msleep(DIV_ROUND_UP(data->delays[0], 1000));
-
-		gpio_set_value(data->reset_gpio, data->active_low ? 0 : 1);
-		if (data->delays[1])
-			msleep(DIV_ROUND_UP(data->delays[1], 1000));
-
-		gpio_set_value(data->reset_gpio, data->active_low ? 1 : 0);
-		if (data->delays[2])
-			msleep(DIV_ROUND_UP(data->delays[2], 1000));
+		/* Try to use GPIO API, if failed try MAC GP out pin */
+		if (stmmac_mdio_reset_gpio_api(priv) < 0)
+			stmmac_mdio_reset_gp_out(priv);
 	}
 #endif
 
@@ -183,9 +245,15 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	 * on MDC, so perform a dummy mdio read.
 	 */
 	writel(0, priv->ioaddr + mii_address);
-#endif
+
 	return 0;
 }
+#else
+int stmmac_mdio_reset(struct mii_bus *bus)
+{
+	return 0;
+}
+#endif
 
 /**
  * stmmac_mdio_register
@@ -219,6 +287,8 @@ int stmmac_mdio_register(struct net_device *ndev)
 #ifdef CONFIG_OF
 	if (priv->device->of_node)
 		mdio_bus_data->reset_gpio = -1;
+	if (priv->plat->mdio_node)
+		new_bus->dev.of_node = priv->plat->mdio_node;
 #endif
 
 	new_bus->name = "stmmac";
@@ -241,7 +311,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
 		struct phy_device *phydev = new_bus->phy_map[addr];
 		if (phydev) {
-			int act = 0;
+			const char *act = "auto-detected";
 			char irq_num[4];
 			char *irq_str;
 
@@ -260,10 +330,15 @@ int stmmac_mdio_register(struct net_device *ndev)
 			 * and no PHY number was provided to the MAC,
 			 * use the one probed here.
 			 */
-			if (priv->plat->phy_addr == -1)
+			if (priv->plat->phy_addr == -1) {
 				priv->plat->phy_addr = addr;
+			}
+			if (priv->plat->phy_node &&
+			    priv->plat->phy_node == phydev->dev.of_node) {
+				priv->plat->phy_addr = addr;
+				act = "of selected";
+			}
 
-			act = (priv->plat->phy_addr == addr);
 			switch (phydev->irq) {
 			case PHY_POLL:
 				irq_str = "POLL";
@@ -276,10 +351,9 @@ int stmmac_mdio_register(struct net_device *ndev)
 				irq_str = irq_num;
 				break;
 			}
-			pr_info("%s: PHY ID %08x at %d IRQ %s (%s)%s\n",
+			pr_info("%s: PHY ID %08x at %d IRQ %s (%s) %s\n",
 				ndev->name, phydev->phy_id, addr,
-				irq_str, dev_name(&phydev->dev),
-				act ? " active" : "");
+				irq_str, dev_name(&phydev->dev), act);
 			found = 1;
 		}
 	}

@@ -29,12 +29,14 @@
  * The PCI controller list.
  */
 
+#ifdef CONFIG_PCI_DRIVERS_LEGACY
 static struct pci_controller *hose_head, **hose_tail = &hose_head;
+
+static int pci_initialized;
+#endif
 
 unsigned long PCIBIOS_MIN_IO;
 unsigned long PCIBIOS_MIN_MEM;
-
-static int pci_initialized;
 
 /*
  * We need to avoid collisions with `mirrored' VGA ports
@@ -49,6 +51,28 @@ static int pci_initialized;
  * but we want to try to avoid allocating at 0x2900-0x2bff
  * which might have be mirrored at 0x0100-0x03ff..
  */
+#ifdef CONFIG_PCI_DRIVERS_GENERIC
+resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+				resource_size_t size, resource_size_t align)
+{
+	struct pci_dev *dev = data;
+	resource_size_t start = res->start;
+	struct pci_host_bridge *host_bridge;
+
+	if (res->flags & IORESOURCE_IO && start & 0x300)
+		start = (start + 0x3ff) & ~0x3ff;
+
+	start = (start + align - 1) & ~(align - 1);
+
+	host_bridge = pci_find_host_bridge(dev->bus);
+
+	if (host_bridge->align_resource)
+		return host_bridge->align_resource(dev, res,
+				start, size, align);
+
+	return start;
+}
+#else
 resource_size_t
 pcibios_align_resource(void *data, const struct resource *res,
 		       resource_size_t size, resource_size_t align)
@@ -86,7 +110,7 @@ static void pcibios_scanbus(struct pci_controller *hose)
 	if (!hose->iommu)
 		PCI_DMA_BUS_IS_PHYS = 1;
 
-	if (hose->get_busno && pci_has_flag(PCI_PROBE_ONLY))
+    if (hose->get_busno)
 		next_busno = (*hose->get_busno)();
 
 	pci_add_resource_offset(&resources,
@@ -216,8 +240,9 @@ out:
 	printk(KERN_WARNING
 	       "Skipping PCI bus scan due to resource conflict\n");
 }
+#endif /* CONFIG_PCI_DRIVER_LEGACY */
 
-static void __init pcibios_set_cache_line_size(void)
+static int __init pcibios_set_cache_line_size(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int lsize;
@@ -235,8 +260,12 @@ static void __init pcibios_set_cache_line_size(void)
 	pci_dfl_cache_line_size = lsize >> 2;
 
 	pr_debug("PCI: pci_cache_line_size set to %d bytes\n", lsize);
-}
 
+	return 0;
+}
+arch_initcall(pcibios_set_cache_line_size);
+
+#ifdef CONFIG_PCI_DRIVERS_LEGACY
 static int __init pcibios_init(void)
 {
 	struct pci_controller *hose;
@@ -293,12 +322,14 @@ static int pcibios_enable_resources(struct pci_dev *dev, int mask)
 	}
 	return 0;
 }
+#endif
 
 unsigned int pcibios_assign_all_busses(void)
 {
 	return 1;
 }
 
+#ifdef CONFIG_PCI_DRIVERS_LEGACY
 int pcibios_enable_device(struct pci_dev *dev, int mask)
 {
 	int err;
@@ -308,15 +339,20 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 
 	return pcibios_plat_dev_init(dev);
 }
+#endif
 
 void pcibios_fixup_bus(struct pci_bus *bus)
 {
+#ifndef CONFIG_PCI_DRIVERS_GENERIC
 	struct pci_dev *dev = bus->self;
 
 	if (pci_has_flag(PCI_PROBE_ONLY) && dev &&
 	    (dev->class >> 8) == PCI_CLASS_BRIDGE_PCI) {
 		pci_read_bridge_bases(bus);
 	}
+#else
+	pci_read_bridge_bases(bus);
+#endif
 }
 
 EXPORT_SYMBOL(PCIBIOS_MIN_IO);
@@ -336,10 +372,13 @@ int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
 		return -EINVAL;
 
 	/*
-	 * Ignore write-combine; for now only return uncached mappings.
+	 * Try to make use of write-combine.
 	 */
 	prot = pgprot_val(vma->vm_page_prot);
-	prot = (prot & ~_CACHE_MASK) | _CACHE_UNCACHED;
+	if (write_combine)
+		prot = (prot & ~_CACHE_MASK) | _CACHE_UNCACHED_ACCELERATED;
+	else
+		prot = (prot & ~_CACHE_MASK) | _CACHE_UNCACHED;
 	vma->vm_page_prot = __pgprot(prot);
 
 	return remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
@@ -354,3 +393,17 @@ char *__init pcibios_setup(char *str)
 		return pcibios_plat_setup(str);
 	return str;
 }
+
+#ifdef CONFIG_PCI_DRIVERS_GENERIC
+int pci_remap_iospace(const struct resource *res, phys_addr_t phys_addr)
+{
+	phys_addr -= res->start;
+	if (phys_addr & ~PAGE_MASK)
+		return -EINVAL;
+
+	set_io_port_base((unsigned long)ioremap(phys_addr, resource_size(res))
+			 + res->start);
+
+	return 0;
+}
+#endif

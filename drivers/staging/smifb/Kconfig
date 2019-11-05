@@ -1,0 +1,51 @@
+config DRM_SMIFB
+	tristate "Silicon Motion sm750/sm768 DRM support"
+	depends on DRM
+	depends on PCI
+	select DRM_TTM
+	select DRM_KMS_HELPER
+	select DRM_KMS_FB_HELPER
+	select FB_SYS_FILLRECT
+	select FB_SYS_COPYAREA
+	select FB_SYS_IMAGEBLIT
+	help
+	  Choose this option if you have a system with SiliconMotion
+	  sm750 or sm768 Graphics.
+
+if DRM_SMIFB
+
+comment "Additional sm750/sm768 features"
+
+config DRM_SMIFB_EDMA
+	bool "Use DMA for transfers from RAM to FB"
+	depends on BAIKAL_EDMA
+	default y if MIPS_BAIKAL
+
+config DRM_SMIFB_SII9022_HDMI
+	bool "Enable SII9022 HDMI transmitter support for sm750"
+	default n
+	help
+	  This option updates the smifb driver to support the SII9022 HDMI
+	  transmitter together with sm750 chip.
+
+	  Say N, unless you are using a device with one.
+
+config DRM_SMIFB_I2S_UDA1345_AUDIO
+	bool "Enable i2s-audio interace for sm768 with uda1345 codec"
+	default n
+	help
+	  This option updates the sm768 i2s-interface to access uda1345 codec
+	  installed on the target device.
+
+	  Say N, unless you are using a device with one.
+
+config DRM_SMIFB_PRIME
+	bool "Enable DRM PRIMT config"
+	default n
+	help
+	  PRIME is the cross device buffer sharing framework in drm. To userspace
+	  PRIME buffers are dma-buf based file descriptors.
+	  
+	  If unsure say N.
+
+endif
