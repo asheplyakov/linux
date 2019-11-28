@@ -242,6 +242,7 @@ source "security/yama/Kconfig"
 source "security/safesetid/Kconfig"
 source "security/lockdown/Kconfig"
 source "security/altha/Kconfig"
+source "security/kiosk/Kconfig"
 
 source "security/integrity/Kconfig"
 
