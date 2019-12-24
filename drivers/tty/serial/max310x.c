@@ -468,15 +468,12 @@ static int max310x_set_baud(struct uart_port *port, int baud)
 	unsigned int mode = 0, div = 0, frac = 0, c = 0, F = 0;
 
 	/*
-	 * Calculate the integer deviser first. Select a proper mode
+	 * Calculate the integer divisor first. Select a proper mode
 	 * in case if the requested baud is too high for the pre-defined
 	 * clocks frequency.
 	 */
 	div = port->uartclk / baud;
-	if (div < 4) {
-		c = 4;
-		mode = MAX310X_BRGCFG_4XMODE_BIT;
-	} else if (div < 8) {
+	if (div < 8) {
 		/* Mode x4 */
 		c = 4;
 		mode = MAX310X_BRGCFG_4XMODE_BIT;
@@ -834,12 +831,9 @@ static void max310x_wq_proc(struct work_struct *ws)
 
 static unsigned int max310x_tx_empty(struct uart_port *port)
 {
-	unsigned int lvl, sts;
+	u8 lvl = max310x_port_read(port, MAX310X_TXFIFOLVL_REG);
 
-	lvl = max310x_port_read(port, MAX310X_TXFIFOLVL_REG);
-	sts = max310x_port_read(port, MAX310X_IRQSTS_REG);
-
-	return ((sts & MAX310X_IRQ_TXEMPTY_BIT) && !lvl) ? TIOCSER_TEMT : 0;
+	return lvl ? 0 : TIOCSER_TEMT;
 }
 
 static unsigned int max310x_get_mctrl(struct uart_port *port)
