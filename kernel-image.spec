@@ -5,7 +5,7 @@ Release: alt1
 
 
 %define kernel_base_version	4.4
-%define kernel_sublevel .174
+%define kernel_sublevel .206
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 
@@ -576,5 +576,13 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Thu Jan 09 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.206-alt1
+  - Merged with linux-stable 4.4.206
+  - Reverted commit b4ca3857b8e7bc87 which breaks sm750 framebuffer
+  - Config changes:
+    + Enabled cifs POSIX extensions
+    + Disabled KGDB (local user can easily gain root)
+    + Enabled jffs2 filesystem
+
 * Fri Nov 22 2019 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.174-alt1
 - Initial build
