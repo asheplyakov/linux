@@ -5,7 +5,7 @@ Release: alt1
 
 
 %define kernel_base_version	4.4
-%define kernel_sublevel .206
+%define kernel_sublevel .207
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 
@@ -576,6 +576,9 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Mon Jan 13 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.207-alt1
+  - Merged with linux-stable v4.4.207
+
 * Thu Jan 09 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.206-alt1
   - Merged with linux-stable 4.4.206
   - Reverted commit b4ca3857b8e7bc87 which breaks sm750 framebuffer
