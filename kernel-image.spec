@@ -5,7 +5,7 @@ Release: alt1
 
 
 %define kernel_base_version	4.4
-%define kernel_sublevel .207
+%define kernel_sublevel .210
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 
@@ -576,6 +576,9 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Thu Jan 16 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.210-alt1
+  - Merged with linux-stable v4.4.210
+
 * Mon Jan 13 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.207-alt1
   - Merged with linux-stable v4.4.207
 
