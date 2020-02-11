@@ -4,6 +4,7 @@ dts-dirs += amd
 dts-dirs += amlogic
 dts-dirs += apm
 dts-dirs += arm
+dts-dirs += baikal
 dts-dirs += broadcom
 dts-dirs += cavium
 dts-dirs += exynos

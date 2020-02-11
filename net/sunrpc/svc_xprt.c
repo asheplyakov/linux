@@ -510,10 +510,11 @@ out:
  */
 void svc_reserve(struct svc_rqst *rqstp, int space)
 {
+	struct svc_xprt *xprt = rqstp->rq_xprt;
+
 	space += rqstp->rq_res.head[0].iov_len;
 
-	if (space < rqstp->rq_reserved) {
-		struct svc_xprt *xprt = rqstp->rq_xprt;
+	if (xprt && space < rqstp->rq_reserved) {
 		atomic_sub((rqstp->rq_reserved - space), &xprt->xpt_reserved);
 		rqstp->rq_reserved = space;
 
@@ -799,6 +800,8 @@ static int svc_handle_xprt(struct svc_rqst *rqstp, struct svc_xprt *xprt)
 
 	if (test_bit(XPT_CLOSE, &xprt->xpt_flags)) {
 		dprintk("svc_recv: found XPT_CLOSE\n");
+		if (test_and_clear_bit(XPT_KILL_TEMP, &xprt->xpt_flags))
+			xprt->xpt_ops->xpo_kill_temp_xprt(xprt);
 		svc_delete_xprt(xprt);
 		/* Leave XPT_BUSY set on the dead xprt: */
 		goto out;
@@ -1020,9 +1023,11 @@ void svc_age_temp_xprts_now(struct svc_serv *serv, struct sockaddr *server_addr)
 		le = to_be_closed.next;
 		list_del_init(le);
 		xprt = list_entry(le, struct svc_xprt, xpt_list);
-		dprintk("svc_age_temp_xprts_now: closing %p\n", xprt);
-		xprt->xpt_ops->xpo_kill_temp_xprt(xprt);
-		svc_close_xprt(xprt);
+		set_bit(XPT_CLOSE, &xprt->xpt_flags);
+		set_bit(XPT_KILL_TEMP, &xprt->xpt_flags);
+		dprintk("svc_age_temp_xprts_now: queuing xprt %p for closing\n",
+				xprt);
+		svc_xprt_enqueue(xprt);
 	}
 }
 EXPORT_SYMBOL_GPL(svc_age_temp_xprts_now);
@@ -1034,7 +1039,7 @@ static void call_xpt_users(struct svc_xprt *xprt)
 	spin_lock(&xprt->xpt_lock);
 	while (!list_empty(&xprt->xpt_users)) {
 		u = list_first_entry(&xprt->xpt_users, struct svc_xpt_user, list);
-		list_del(&u->list);
+		list_del_init(&u->list);
 		u->callback(u);
 	}
 	spin_unlock(&xprt->xpt_lock);

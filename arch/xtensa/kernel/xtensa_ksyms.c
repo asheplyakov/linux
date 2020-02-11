@@ -94,13 +94,11 @@ unsigned long __sync_fetch_and_or_4(unsigned long *p, unsigned long v)
 }
 EXPORT_SYMBOL(__sync_fetch_and_or_4);
 
-#ifdef CONFIG_NET
 /*
  * Networking support
  */
 EXPORT_SYMBOL(csum_partial);
 EXPORT_SYMBOL(csum_partial_copy_generic);
-#endif /* CONFIG_NET */
 
 /*
  * Architecture-specific symbols
@@ -115,13 +113,6 @@ EXPORT_SYMBOL(__invalidate_icache_range);
 #if defined(CONFIG_VGA_CONSOLE) || defined(CONFIG_DUMMY_CONSOLE)
 // FIXME EXPORT_SYMBOL(screen_info);
 #endif
-
-EXPORT_SYMBOL(outsb);
-EXPORT_SYMBOL(outsw);
-EXPORT_SYMBOL(outsl);
-EXPORT_SYMBOL(insb);
-EXPORT_SYMBOL(insw);
-EXPORT_SYMBOL(insl);
 
 extern long common_exception_return;
 EXPORT_SYMBOL(common_exception_return);

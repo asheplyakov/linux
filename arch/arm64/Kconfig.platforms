@@ -2,9 +2,11 @@ menu "Platform selection"
 
 config ARCH_SUNXI
 	bool "Allwinner sunxi 64-bit SoC Family"
+	select ARCH_HAS_RESET_CONTROLLER
 	select GENERIC_IRQ_CHIP
 	select PINCTRL
 	select PINCTRL_SUN50I_A64
+	select RESET_CONTROLLER
 	help
 	  This enables support for Allwinner sunxi based SoCs like the A64.
 
@@ -14,6 +16,41 @@ config ARCH_ALPINE
 	help
 	  This enables support for the Annapurna Labs Alpine
 	  Soc family.
+
+config ARCH_BAIKAL
+	bool "Baikal Electronics Baikal-M SOC Family"
+	select SYS_HAS_EARLY_PRINTK
+	select GPIOLIB
+	select OF_GPIO
+	select ARCH_NR_GPIO
+	select GENERIC_CLOCKEVENTS
+	select DW_APB_TIMER
+	select DW_APB_TIMER_OF
+	select SENSORS_PVT
+	help
+	  This enables support for Baikal Electronics Baikal-M SOC Family
+
+config ARCH_BAIKAL_REAL
+	bool "Baikal Electronics Baikal-M SOC Family REAL"
+	select GPIOLIB
+	select PINCTRL
+	select OF_GPIO
+	select GPIO_SYSFS
+	select GPIO_DWAPB
+	select GPIO_GENERIC
+	select STMMAC_ETH
+	select STMMAC_PLATFORM
+	select STMMAC_DEBUG_FS
+	select PHYLIB
+	select DEBUG_LL
+	select TIMER_GENERIC
+	select ARCH_WANT_OPTIONAL_GPIOLIB
+	select SPI_DESIGNWARE
+	select SPI_DW_MMIO
+	select DW_APB_TIMER
+	select DW_APB_TIMER_OF
+	help
+	  This enables support for Baikal Electronics Baikal-M SOC Family
 
 config ARCH_BCM2835
 	bool "Broadcom BCM2835 family"
@@ -123,6 +160,7 @@ config ARCH_ROCKCHIP
 	select GPIOLIB
 	select PINCTRL
 	select PINCTRL_ROCKCHIP
+	select PM
 	select ROCKCHIP_TIMER
 	help
 	  This enables support for the ARMv8 based Rockchip chipsets,
@@ -222,6 +260,15 @@ config ARCH_ZX
 	bool "ZTE ZX SoC Family"
 	help
 	  This enables support for ZTE ZX SoC Family
+
+config ARCH_NR_GPIO
+    int "Baikal GPIOs plus architecture specific ones"
+    range 32 512
+    default 32 
+    help
+      Maximum number of GPIOs in the system.
+
+      If unsure, leave the default value.
 
 config ARCH_ZYNQMP
 	bool "Xilinx ZynqMP Family"

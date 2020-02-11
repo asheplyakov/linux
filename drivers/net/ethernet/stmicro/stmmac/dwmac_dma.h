@@ -150,4 +150,6 @@ void dwmac_dma_stop_rx(void __iomem *ioaddr);
 int dwmac_dma_interrupt(void __iomem *ioaddr, struct stmmac_extra_stats *x);
 int dwmac_dma_reset(void __iomem *ioaddr);
 
+// #define DWMAC_DMA_DEBUG 1
+
 #endif /* __DWMAC_DMA_H__ */

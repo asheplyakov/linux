@@ -126,6 +126,16 @@ static const struct reg_default aic3x_reg[] = {
 	{ 108, 0x00 }, { 109, 0x00 },
 };
 
+static bool aic3x_volatile_reg(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case AIC3X_RESET:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static const struct regmap_config aic3x_regmap = {
 	.reg_bits = 8,
 	.val_bits = 8,
@@ -133,6 +143,9 @@ static const struct regmap_config aic3x_regmap = {
 	.max_register = DAC_ICC_ADJ,
 	.reg_defaults = aic3x_reg,
 	.num_reg_defaults = ARRAY_SIZE(aic3x_reg),
+
+	.volatile_reg = aic3x_volatile_reg,
+
 	.cache_type = REGCACHE_RBTREE,
 };
 
@@ -1785,6 +1798,9 @@ static int aic3x_i2c_probe(struct i2c_client *i2c,
 		if (ret != 0)
 			goto err;
 		gpio_direction_output(aic3x->gpio_reset, 0);
+
+		udelay(100);
+		gpio_set_value(aic3x->gpio_reset, 1);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(aic3x->supplies); i++)

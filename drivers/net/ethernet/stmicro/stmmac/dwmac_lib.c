@@ -34,7 +34,17 @@ int dwmac_dma_reset(void __iomem *ioaddr)
 	/* DMA SW reset */
 	value |= DMA_BUS_MODE_SFT_RESET;
 	writel(value, ioaddr + DMA_BUS_MODE);
-	limit = 10;
+
+#if defined(CONFIG_MIPS_BAIKAL) || 1
+	/* Clear PHY reset */
+	udelay(10);
+	value = readl(ioaddr + MAC_GPIO);
+	value |= MAC_GPIO_GPO0;
+	writel(value, ioaddr + MAC_GPIO);
+	pr_info("PHY inited\n");
+#endif
+
+	limit = 100;
 	while (limit--) {
 		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
 			break;

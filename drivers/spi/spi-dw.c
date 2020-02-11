@@ -107,7 +107,10 @@ static const struct file_operations dw_spi_regs_ops = {
 
 static int dw_spi_debugfs_init(struct dw_spi *dws)
 {
-	dws->debugfs = debugfs_create_dir("dw_spi", NULL);
+	char name[128];
+
+	snprintf(name, 128, "dw_spi-%s", dev_name(&dws->master->dev));
+	dws->debugfs = debugfs_create_dir(name, NULL);
 	if (!dws->debugfs)
 		return -ENOMEM;
 
@@ -191,6 +194,8 @@ static void dw_writer(struct dw_spi *dws)
 		dw_write_io_reg(dws, DW_SPI_DR, txw);
 		dws->tx += dws->n_bytes;
 	}
+	/* restart transmission if chip_select dropped */
+	dw_writel(dws, DW_SPI_SER, BIT(dws->chip_select));
 }
 
 static void dw_reader(struct dw_spi *dws)
@@ -293,6 +298,7 @@ static int dw_spi_transfer_one(struct spi_master *master,
 	dws->rx = transfer->rx_buf;
 	dws->rx_end = dws->rx + transfer->len;
 	dws->len = transfer->len;
+	dws->chip_select = spi->chip_select;
 
 	spi_enable_chip(dws, 0);
 

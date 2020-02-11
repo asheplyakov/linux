@@ -170,6 +170,7 @@
 #define BIT_CLK_MASTER          0x80
 #define WORD_CLK_MASTER         0x40
 #define DOUT_TRISTATE		0x20
+#define CLK_DRIVE_CONTROL	0x10
 
 /* Codec Datapath setup register 7 */
 #define FSREF_44100		(1 << 7)
@@ -235,7 +236,7 @@
 #define INVERT_VOL(val)   (0x7f - val)
 
 /* Default output volume (inverted) */
-#define DEFAULT_VOL     INVERT_VOL(0x50)
+#define DEFAULT_VOL     INVERT_VOL(0x20)
 /* Default input volume */
 #define DEFAULT_GAIN    0x20
 

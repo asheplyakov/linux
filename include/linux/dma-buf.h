@@ -32,6 +32,7 @@
 #include <linux/fs.h>
 #include <linux/fence.h>
 #include <linux/wait.h>
+#include <linux/kds.h>
 
 struct device;
 struct dma_buf;
@@ -131,6 +132,10 @@ struct dma_buf {
 	struct list_head attachments;
 	const struct dma_buf_ops *ops;
 	struct mutex lock;
+    struct kds_resource kds;
+    wait_queue_head_t wq_exclusive;
+    wait_queue_head_t wq_shared;
+    struct kds_callback kds_cb;
 	unsigned vmapping_counter;
 	void *vmap_ptr;
 	const char *exp_name;
@@ -213,6 +218,22 @@ static inline void get_dma_buf(struct dma_buf *dmabuf)
 {
 	get_file(dmabuf->file);
 }
+
+/**
+ * get_dma_buf_kds_resource - get a KDS resource for this dma-buf
+ * @dmabuf:    [in]    pointer to dma_buf
+ *
+ * Returns a KDS resource that represents the dma-buf. This should be used by
+ * drivers to synchronize access to the buffer. Note that the caller should
+ * ensure that a reference to the dma-buf exists from the call to
+ * kds_async_wait until kds_resource_set_release is called.
+ */
+static inline struct kds_resource *
+   get_dma_buf_kds_resource(struct dma_buf *dmabuf)
+{
+   return &dmabuf->kds;
+}
+
 
 struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
 							struct device *dev);

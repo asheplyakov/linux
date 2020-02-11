@@ -567,12 +567,18 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
 	}
 }
 
+char stmmac_tests_strings[][ETH_GSTRING_LEN] = { "Loopback MAC update" };
+#define STMMAC_TEST_LEN ARRAY_SIZE(stmmac_tests_strings)
+
 static int stmmac_get_sset_count(struct net_device *netdev, int sset)
 {
 	struct stmmac_priv *priv = netdev_priv(netdev);
 	int len;
 
 	switch (sset) {
+	case ETH_SS_TEST:
+		len = STMMAC_TEST_LEN;
+		return len;
 	case ETH_SS_STATS:
 		len = STMMAC_STATS_LEN;
 
@@ -585,6 +591,7 @@ static int stmmac_get_sset_count(struct net_device *netdev, int sset)
 	}
 }
 
+
 static void stmmac_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 {
 	int i;
@@ -592,6 +599,9 @@ static void stmmac_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 	struct stmmac_priv *priv = netdev_priv(dev);
 
 	switch (stringset) {
+	case ETH_SS_TEST:
+		memcpy(p, stmmac_tests_strings, sizeof(stmmac_tests_strings));
+		break;
 	case ETH_SS_STATS:
 		if (priv->dma_cap.rmon)
 			for (i = 0; i < STMMAC_MMC_STATS_LEN; i++) {
@@ -676,25 +686,27 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
 				     struct ethtool_eee *edata)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
+	int ret;
 
-	priv->eee_enabled = edata->eee_enabled;
-
-	if (!priv->eee_enabled)
+	if (!edata->eee_enabled) {
 		stmmac_disable_eee_mode(priv);
-	else {
+	} else {
 		/* We are asking for enabling the EEE but it is safe
 		 * to verify all by invoking the eee_init function.
 		 * In case of failure it will return an error.
 		 */
-		priv->eee_enabled = stmmac_eee_init(priv);
-		if (!priv->eee_enabled)
+		edata->eee_enabled = stmmac_eee_init(priv);
+		if (!edata->eee_enabled)
 			return -EOPNOTSUPP;
-
-		/* Do not change tx_lpi_timer in case of failure */
-		priv->tx_lpi_timer = edata->tx_lpi_timer;
 	}
 
-	return phy_ethtool_set_eee(priv->phydev, edata);
+	ret = phy_ethtool_set_eee(dev->phydev, edata);
+	if (ret)
+		return ret;
+
+	priv->eee_enabled = edata->eee_enabled;
+	priv->tx_lpi_timer = edata->tx_lpi_timer;
+	return 0;
 }
 
 static u32 stmmac_usec2riwt(u32 usec, struct stmmac_priv *priv)
@@ -850,6 +862,16 @@ static int stmmac_set_tunable(struct net_device *dev,
 	return ret;
 }
 
+static void stmmac_test(struct net_device *dev,
+                            struct ethtool_test *eth_test, u64 *data)
+{
+	struct stmmac_priv *priv = netdev_priv(dev);
+	u32 value = readl(priv->ioaddr + MAC_CTRL_REG) ^ (1 << 12);
+	writel(value, priv->ioaddr + MAC_CTRL_REG);
+	pr_info("CTRL_REG 0x%x\n", value);
+	*data = 0;
+}
+
 static const struct ethtool_ops stmmac_ethtool_ops = {
 	.begin = stmmac_check_if_running,
 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
@@ -862,6 +884,7 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
 	.get_link = ethtool_op_get_link,
 	.get_pauseparam = stmmac_get_pauseparam,
 	.set_pauseparam = stmmac_set_pauseparam,
+	.self_test = stmmac_test,
 	.get_ethtool_stats = stmmac_get_ethtool_stats,
 	.get_strings = stmmac_get_strings,
 	.get_wol = stmmac_get_wol,

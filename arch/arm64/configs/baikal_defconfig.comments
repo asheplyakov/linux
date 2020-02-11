@@ -1,0 +1,540 @@
+#
+# Linux/arm64 4.9.xx Kernel Configuration (defconfig)
+# for Baikal-M SOC (test version with comments)
+#
+
+# General setup
+
+CONFIG_LOCALVERSION="b-m-20171215"
+CONFIG_DEFAULT_HOSTNAME="bm"
+CONFIG_SYSVIPC=y
+CONFIG_POSIX_MQUEUE=y
+CONFIG_AUDIT=y
+
+# IRQ subsystem
+
+
+# Timers subsystem
+
+CONFIG_NO_HZ_IDLE=y
+CONFIG_HIGH_RES_TIMERS=y
+
+# CPU/Task time and stats accounting
+
+CONFIG_BSD_PROCESS_ACCT=y
+CONFIG_BSD_PROCESS_ACCT_V3=y
+
+# RCU Subsystem
+
+CONFIG_MEMCG=y
+CONFIG_MEMCG_SWAP=y
+CONFIG_BLK_CGROUP=y
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_CGROUP_PIDS=y
+CONFIG_CGROUP_FREEZER=y
+CONFIG_CPUSETS=y
+CONFIG_CGROUP_DEVICE=y
+CONFIG_CGROUP_CPUACCT=y
+CONFIG_CGROUP_PERF=y
+CONFIG_NAMESPACES=y
+CONFIG_USER_NS=y
+CONFIG_SCHED_AUTOGROUP=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_EXPERT=y
+CONFIG_BPF_SYSCALL=y
+CONFIG_USERFAULTFD=y
+
+# Kernel Performance Events And Counters
+
+CONFIG_PERF_EVENTS=y
+CONFIG_SLAB=y
+CONFIG_CC_STACKPROTECTOR_STRONG=y
+
+# GCOV-based kernel profiling
+
+CONFIG_MODULES=y
+CONFIG_MODULE_FORCE_LOAD=y
+CONFIG_MODULE_UNLOAD=y
+CONFIG_MODULE_FORCE_UNLOAD=y
+CONFIG_MODVERSIONS=y
+
+# Partition Types
+
+CONFIG_PARTITION_ADVANCED=y
+
+# IO Schedulers
+
+CONFIG_CFQ_GROUP_IOSCHED=y
+
+# Platform selection
+
+CONFIG_ARCH_BAIKAL=y
+
+# Bus support
+
+
+# Kernel Features
+
+
+# ARM errata workarounds via the alternatives framework
+
+CONFIG_SCHED_MC=y
+CONFIG_NR_CPUS=8
+CONFIG_PREEMPT_VOLUNTARY=y
+CONFIG_HZ_1000=y
+CONFIG_HZ=1000
+CONFIG_KSM=y
+CONFIG_TRANSPARENT_HUGEPAGE=y
+CONFIG_TRANSPARENT_HUGEPAGE_MADVISE=y
+CONFIG_FRONTSWAP=y
+CONFIG_CMA=y
+
+# ARMv8.1 architectural features
+
+
+# ARMv8.2 architectural features
+
+
+# Boot options
+
+
+# Userspace binary formats
+
+CONFIG_COMPAT=y
+
+# Power management options
+
+
+# CPU Power Management
+
+
+# CPU Idle
+
+
+# CPU Frequency scaling
+
+
+CONFIG_NET=y
+
+# Networking options
+
+CONFIG_PACKET=y
+CONFIG_PACKET_DIAG=y
+CONFIG_UNIX=y
+CONFIG_INET=y
+
+# Queueing/Scheduling
+
+
+# Classification
+
+
+# Network testing
+
+
+# Device Drivers
+
+
+# Generic Driver Options
+
+CONFIG_DEVTMPFS=y
+CONFIG_DMA_CMA=y
+
+# Default contiguous memory area size:
+
+CONFIG_CMA_SIZE_MBYTES=256
+
+# Bus devices
+
+CONFIG_BLK_DEV_LOOP=y
+CONFIG_BLK_DEV_NBD=y
+CONFIG_BLK_DEV_RAM=y
+CONFIG_BLK_DEV_RAM_SIZE=16384
+
+# Misc devices
+
+
+# EEPROM support
+
+CONFIG_EEPROM_AT25=m
+
+# Texas Instruments shared transport line discipline
+
+
+# Altera FPGA firmware download module
+
+
+# Intel MIC Bus Driver
+
+
+# SCIF Bus Driver
+
+
+# VOP Bus Driver
+
+
+# Intel MIC Host Driver
+
+
+# Intel MIC Card Driver
+
+
+# SCIF Driver
+
+
+# Intel MIC Coprocessor State Management (COSM) Drivers
+
+
+# VOP Driver
+
+
+# SCSI device support
+
+CONFIG_NETDEVICES=y
+CONFIG_BONDING=y
+CONFIG_DUMMY=y
+
+# CAIF transport drivers
+
+
+# Distributed Switch Architecture drivers
+
+CONFIG_SYNOPSYS_DWC_ETH_QOS=y
+
+# MDIO bus device drivers
+
+
+# MII PHY device drivers
+
+CONFIG_REALTEK_PHY=m
+
+# Host-side USB support is needed for USB Network Adapter support
+
+
+# Enable WiMAX (Networking options) to see the WiMAX drivers
+
+
+# Input device support
+
+
+# Userland interfaces
+
+
+# Input Device Drivers
+
+
+# Hardware I/O ports
+
+
+# Character devices
+
+CONFIG_VT_HW_CONSOLE_BINDING=y
+
+# Serial drivers
+
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_EXTENDED=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_8250_NR_UARTS=2
+CONFIG_SERIAL_8250_RUNTIME_UARTS=2
+CONFIG_SERIAL_8250_DW=y
+
+# Non-8250 serial port support
+
+CONFIG_TTY_PRINTK=y
+
+# PCMCIA character devices
+
+
+# I2C support
+
+CONFIG_SPI=y
+
+# SPI Master Controller Drivers
+
+
+# SPI Protocol Masters
+
+
+# PPS support
+
+
+# PPS generators support
+
+
+# PTP clock support
+
+
+# Enable PHYLIB and NETWORK_PHY_TIMESTAMPING to see the additional clocks.
+
+
+# Pin controllers
+
+
+# Memory mapped GPIO drivers
+
+
+# MFD GPIO expanders
+
+
+# SPI GPIO expanders
+
+
+# SPI or I2C GPIO expanders
+
+
+# Sonics Silicon Backplane
+
+
+# Broadcom specific AMBA
+
+
+# Multifunction device drivers
+
+
+# Graphics support
+
+
+# ARM GPU Configuration
+
+
+# ACP (Audio CoProcessor) Configuration
+
+
+# Frame buffer Devices
+
+
+# Console display driver support
+
+
+# HID support
+
+CONFIG_RTC_CLASS=y
+
+# RTC interfaces
+
+
+# I2C RTC drivers
+
+
+# SPI RTC drivers
+
+
+# SPI and I2C RTC drivers
+
+
+# Platform RTC drivers
+
+
+# on-CPU RTC drivers
+
+
+# HID Sensor RTC drivers
+
+CONFIG_DMADEVICES=y
+
+# DMA Devices
+
+
+# DMA Clients
+
+
+# DMABUF options
+
+CONFIG_SYNC_FILE=y
+
+# Virtio drivers
+
+
+# Microsoft Hyper-V guest support
+
+
+# Common Clock Framework
+
+CONFIG_COMMON_CLK_VERSATILE=y
+
+# Hardware Spinlock drivers
+
+
+# Clock Source drivers
+
+CONFIG_MAILBOX=y
+CONFIG_ARM_MHU=m
+
+# Generic IOMMU Pagetable Support
+
+CONFIG_ARM_SMMU=y
+CONFIG_ARM_SMMU_V3=y
+
+# Remoteproc drivers
+
+
+# Rpmsg drivers
+
+
+# SOC (System On Chip) specific Drivers
+
+
+# Broadcom SoC drivers
+
+
+# PHY Subsystem
+
+
+# Performance monitor support
+
+
+# Android
+
+
+# FPGA Configuration Support
+
+
+# Firmware Drivers
+
+
+# EFI (Extensible Firmware Interface) Support
+
+
+# File systems
+
+CONFIG_EXT4_FS=y
+CONFIG_EXT4_FS_POSIX_ACL=y
+CONFIG_EXT4_FS_SECURITY=y
+CONFIG_EXT4_ENCRYPTION=y
+CONFIG_EXPORTFS_BLOCK_OPS=y
+CONFIG_FANOTIFY=y
+CONFIG_AUTOFS4_FS=m
+
+# Caches
+
+CONFIG_FSCACHE=m
+CONFIG_FSCACHE_STATS=y
+CONFIG_CACHEFILES=m
+
+# CD-ROM/DVD Filesystems
+
+CONFIG_ISO9660_FS=m
+
+# DOS/FAT/NT Filesystems
+
+CONFIG_MSDOS_FS=m
+CONFIG_VFAT_FS=m
+CONFIG_FAT_DEFAULT_IOCHARSET="ascii"
+CONFIG_FAT_DEFAULT_UTF8=y
+CONFIG_NTFS_FS=m
+
+# Pseudo filesystems
+
+CONFIG_PROC_KCORE=y
+CONFIG_TMPFS=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_HUGETLBFS=y
+CONFIG_CONFIGFS_FS=m
+CONFIG_NLS_DEFAULT="utf8"
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_CODEPAGE_866=y
+CONFIG_NLS_CODEPAGE_1251=y
+CONFIG_NLS_ASCII=y
+CONFIG_NLS_ISO8859_1=y
+CONFIG_NLS_ISO8859_5=y
+CONFIG_NLS_KOI8_R=y
+CONFIG_NLS_UTF8=y
+
+# Kernel hacking
+
+
+# printk and dmesg options
+
+CONFIG_PRINTK_TIME=y
+CONFIG_BOOT_PRINTK_DELAY=y
+CONFIG_DYNAMIC_DEBUG=y
+
+# Compile-time checks and compiler options
+
+CONFIG_STRIP_ASM_SYMS=y
+CONFIG_MAGIC_SYSRQ=y
+CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE=0x01b6
+
+# Memory Debugging
+
+CONFIG_PAGE_POISONING=y
+CONFIG_PAGE_POISONING_NO_SANITY=y
+CONFIG_DEBUG_MEMORY_INIT=y
+
+# Debug Lockups and Hangs
+
+CONFIG_LOCKUP_DETECTOR=y
+CONFIG_SCHEDSTATS=y
+CONFIG_SCHED_STACK_END_CHECK=y
+
+# Lock Debugging (spinlocks, mutexes, etc...)
+
+CONFIG_DEBUG_LIST=y
+
+# RCU Debugging
+
+CONFIG_NOTIFIER_ERROR_INJECTION=m
+CONFIG_FTRACE_SYSCALLS=y
+CONFIG_TRACER_SNAPSHOT=y
+CONFIG_STACK_TRACER=y
+CONFIG_BLK_DEV_IO_TRACE=y
+
+# Runtime Testing
+
+CONFIG_TEST_USER_COPY=m
+CONFIG_TEST_BPF=m
+CONFIG_TEST_FIRMWARE=m
+CONFIG_TEST_STATIC_KEYS=m
+CONFIG_STRICT_DEVMEM=y
+CONFIG_IO_STRICT_DEVMEM=y
+
+# Security options
+
+
+# Crypto core or helper
+
+
+# Authenticated Encryption with Associated Data
+
+
+# Block modes
+
+
+# Hash modes
+
+
+# Digest
+
+CONFIG_CRYPTO_MD5=y
+
+# Ciphers
+
+
+# Compression
+
+CONFIG_CRYPTO_LZO=y
+CONFIG_CRYPTO_LZ4=m
+CONFIG_CRYPTO_LZ4HC=m
+
+# Random Number Generation
+
+CONFIG_CRYPTO_ANSI_CPRNG=m
+CONFIG_CRYPTO_USER_API_HASH=m
+CONFIG_CRYPTO_USER_API_SKCIPHER=m
+CONFIG_CRYPTO_USER_API_AEAD=m
+
+# Certificates for signature checking
+
+CONFIG_ARM64_CRYPTO=y
+CONFIG_CRYPTO_SHA1_ARM64_CE=m
+CONFIG_CRYPTO_SHA2_ARM64_CE=m
+CONFIG_CRYPTO_GHASH_ARM64_CE=m
+CONFIG_CRYPTO_AES_ARM64_CE_CCM=m
+CONFIG_CRYPTO_AES_ARM64_CE_BLK=m
+CONFIG_CRYPTO_CRC32_ARM64=y
+
+# Library routines
+
+CONFIG_LIBCRC32C=m
+CONFIG_IRQ_POLL=y

@@ -213,6 +213,12 @@ static void dwmac1000_set_filter(struct mac_device_info *hw,
 					    GMAC_ADDR_LOW(reg));
 			reg++;
 		}
+
+		while (reg <= perfect_addr_number) {
+			writel(0, ioaddr + GMAC_ADDR_HIGH(reg));
+			writel(0, ioaddr + GMAC_ADDR_LOW(reg));
+			reg++;
+		}
 	}
 
 #ifdef FRAME_FILTER_DEBUG
@@ -305,7 +311,11 @@ static int dwmac1000_irq_status(struct mac_device_info *hw,
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
+	u32 intr_mask = readl(ioaddr + GMAC_INT_MASK);
 	int ret = 0;
+
+	/* Discard masked bits */
+	intr_status &= ~intr_mask;
 
 	/* Not used events (e.g. MMC interrupts) are not handled. */
 	if ((intr_status & GMAC_INT_STATUS_MMCTIS))

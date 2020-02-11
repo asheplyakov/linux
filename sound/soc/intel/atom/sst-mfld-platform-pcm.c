@@ -399,7 +399,13 @@ static int sst_media_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai)
 {
-	snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+	int ret;
+
+	ret =
+		snd_pcm_lib_malloc_pages(substream,
+				params_buffer_bytes(params));
+	if (ret)
+		return ret;
 	memset(substream->runtime->dma_area, 0, params_buffer_bytes(params));
 	return 0;
 }
@@ -771,6 +777,9 @@ static int sst_soc_prepare(struct device *dev)
 	struct sst_data *drv = dev_get_drvdata(dev);
 	struct snd_soc_pcm_runtime *rtd;
 
+	if (!drv->soc_card)
+		return 0;
+
 	/* suspend all pcms first */
 	snd_soc_suspend(drv->soc_card->dev);
 	snd_soc_poweroff(drv->soc_card->dev);
@@ -792,6 +801,9 @@ static void sst_soc_complete(struct device *dev)
 {
 	struct sst_data *drv = dev_get_drvdata(dev);
 	struct snd_soc_pcm_runtime *rtd;
+
+	if (!drv->soc_card)
+		return;
 
 	/* restart SSPs */
 	list_for_each_entry(rtd, &drv->soc_card->rtd_list, list) {

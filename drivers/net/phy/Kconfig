@@ -164,6 +164,19 @@ config AT803X_PHY
 	---help---
 	  Currently supports the AT8030 and AT8035 model
 
+config BAIKAL_MDIO
+        tristate "Driver for the Baikal Electronics GPIO MDIO bus"
+        depends on OF && GPIOLIB && MDIO_BITBANG
+        ---help---
+          Support for Baikal Electronics GPIO MDIO bus 
+
+config 88X2222_PHY
+        tristate "Drivers for Marvell 88X2222 Tanceiver"
+        ---help---
+          Support for Marvell Integrated Dual-port
+          Multi-speed Ethernet Transceivers.
+          Currently supports 88x2222
+
 config BCM63XX_PHY
 	tristate "Broadcom 63xx SOCs internal PHY"
 	depends on BCM63XX

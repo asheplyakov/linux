@@ -669,6 +669,7 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
 	INIT_RADIX_TREE(&bdi->cgwb_tree, GFP_ATOMIC);
 	bdi->cgwb_congested_tree = RB_ROOT;
 	atomic_set(&bdi->usage_cnt, 1);
+	init_rwsem(&bdi->wb_switch_rwsem);
 
 	ret = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
 	if (!ret) {
@@ -757,15 +758,20 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
 	if (!bdi->wb_congested)
 		return -ENOMEM;
 
+	atomic_set(&bdi->wb_congested->refcnt, 1);
+
 	err = wb_init(&bdi->wb, bdi, 1, GFP_KERNEL);
 	if (err) {
-		kfree(bdi->wb_congested);
+		wb_congested_put(bdi->wb_congested);
 		return err;
 	}
 	return 0;
 }
 
-static void cgwb_bdi_destroy(struct backing_dev_info *bdi) { }
+static void cgwb_bdi_destroy(struct backing_dev_info *bdi)
+{
+	wb_congested_put(bdi->wb_congested);
+}
 
 #endif	/* CONFIG_CGROUP_WRITEBACK */
 

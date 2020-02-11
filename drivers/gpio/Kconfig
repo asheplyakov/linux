@@ -670,6 +670,7 @@ config GPIO_ADP5588
 config GPIO_ADP5588_IRQ
 	bool "Interrupt controller support for ADP5588"
 	depends on GPIO_ADP5588=y
+	select GPIOLIB_IRQCHIP
 	help
 	  Say yes here to enable the adp5588 to be used as an interrupt
 	  controller. It requires the driver to be built in the kernel.
@@ -1187,6 +1188,8 @@ config GPIO_MCP23S08
 	tristate "Microchip MCP23xxx I/O expander"
 	depends on OF_GPIO
 	select GPIOLIB_IRQCHIP
+	select REGMAP_I2C if I2C
+	select REGMAP if SPI_MASTER
 	help
 	  SPI/I2C driver for Microchip MCP23S08/MCP23S17/MCP23008/MCP23017
 	  I/O expanders.

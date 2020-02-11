@@ -235,10 +235,20 @@ config GENERIC_CPU_DEVICES
 config GENERIC_CPU_AUTOPROBE
 	bool
 
+config GENERIC_CPU_VULNERABILITIES
+	bool
+
 config SOC_BUS
 	bool
 
 source "drivers/base/regmap/Kconfig"
+
+source "drivers/base/ump/Kconfig"
+
+source "drivers/base/kds/Kconfig"
+
+source "drivers/base/dma_buf_test_exporter/Kconfig"
+
 
 config DMA_SHARED_BUFFER
 	bool
@@ -335,5 +345,13 @@ config CMA_ALIGNMENT
 	  If unsure, leave the default value "8".
 
 endif
+
+config DMA_SHARED_BUFFER_USES_KDS
+	bool "Synchronize access to dma_buf with KDS"
+	default n
+	select KDS
+	depends on DMA_SHARED_BUFFER
+	help
+	  This option adds a KDS resource within every dma_buf allocation.
 
 endmenu

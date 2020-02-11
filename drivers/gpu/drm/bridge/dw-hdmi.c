@@ -847,6 +847,10 @@ static int hdmi_phy_configure(struct dw_hdmi *hdmi, unsigned char prep,
 			dev_err(hdmi->dev, "PHY PLL not locked\n");
 			return -ETIMEDOUT;
 		}
+		else
+		{
+			dev_err(hdmi->dev, "PHY PLL has locked successfully\n");
+		}
 
 		udelay(1000);
 		msec--;
@@ -1116,9 +1120,9 @@ static void dw_hdmi_enable_video_path(struct dw_hdmi *hdmi)
 	hdmi_writeb(hdmi, 1, HDMI_FC_EXCTRLSPAC);
 
 	/* Set to fill TMDS data channels */
-	hdmi_writeb(hdmi, 0x0B, HDMI_FC_CH0PREAM);
+	/*hdmi_writeb(hdmi, 0x0B, HDMI_FC_CH0PREAM);
 	hdmi_writeb(hdmi, 0x16, HDMI_FC_CH1PREAM);
-	hdmi_writeb(hdmi, 0x21, HDMI_FC_CH2PREAM);
+	hdmi_writeb(hdmi, 0x21, HDMI_FC_CH2PREAM);*/
 
 	/* Enable pixel clock and tmds data path */
 	clkdis = 0x7F;
@@ -1127,6 +1131,9 @@ static void dw_hdmi_enable_video_path(struct dw_hdmi *hdmi)
 
 	clkdis &= ~HDMI_MC_CLKDIS_TMDSCLK_DISABLE;
 	hdmi_writeb(hdmi, clkdis, HDMI_MC_CLKDIS);
+
+	/* TBD AGAIN Set up VSYNC active edge delay (in lines) */
+	hdmi_writeb(hdmi, 0x2, HDMI_FC_VSYNCINWIDTH);
 
 	/* Enable csc path */
 	if (is_color_space_conversion(hdmi)) {

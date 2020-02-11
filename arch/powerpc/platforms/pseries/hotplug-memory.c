@@ -124,6 +124,7 @@ static struct property *dlpar_clone_drconf_property(struct device_node *dn)
 	for (i = 0; i < num_lmbs; i++) {
 		lmbs[i].base_addr = be64_to_cpu(lmbs[i].base_addr);
 		lmbs[i].drc_index = be32_to_cpu(lmbs[i].drc_index);
+		lmbs[i].aa_index = be32_to_cpu(lmbs[i].aa_index);
 		lmbs[i].flags = be32_to_cpu(lmbs[i].flags);
 	}
 
@@ -147,6 +148,7 @@ static void dlpar_update_drconf_property(struct device_node *dn,
 	for (i = 0; i < num_lmbs; i++) {
 		lmbs[i].base_addr = cpu_to_be64(lmbs[i].base_addr);
 		lmbs[i].drc_index = cpu_to_be32(lmbs[i].drc_index);
+		lmbs[i].aa_index = cpu_to_be32(lmbs[i].aa_index);
 		lmbs[i].flags = cpu_to_be32(lmbs[i].flags);
 	}
 
@@ -614,7 +616,7 @@ static int dlpar_add_lmb(struct of_drconf_cell *lmb)
 	nid = memory_add_physaddr_to_nid(lmb->base_addr);
 
 	/* Add the memory */
-	rc = add_memory(nid, lmb->base_addr, block_sz);
+	rc = __add_memory(nid, lmb->base_addr, block_sz);
 	if (rc) {
 		dlpar_remove_device_tree_lmb(lmb);
 		dlpar_release_drc(lmb->drc_index);

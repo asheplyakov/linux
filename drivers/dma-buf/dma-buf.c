@@ -34,8 +34,10 @@
 #include <linux/poll.h>
 #include <linux/reservation.h>
 #include <linux/mm.h>
+#include <linux/sched.h>
 
 #include <uapi/linux/dma-buf.h>
+
 
 static inline int is_dma_buf_file(struct file *);
 
@@ -54,7 +56,8 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 		return -EINVAL;
 
 	dmabuf = file->private_data;
-
+    kds_callback_term(&dmabuf->kds_cb);
+    kds_resource_term(&dmabuf->kds);
 	BUG_ON(dmabuf->vmapping_counter);
 
 	/*
@@ -69,6 +72,7 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 
 	dmabuf->ops->release(dmabuf);
 
+    
 	mutex_lock(&db_list.lock);
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
@@ -96,6 +100,38 @@ static int dma_buf_mmap_internal(struct file *file, struct vm_area_struct *vma)
 		return -EINVAL;
 
 	return dmabuf->ops->mmap(dmabuf, vma);
+}
+
+
+static void dma_buf_kds_cb_fn (void *param1, void *param2)
+{
+   struct kds_resource_set **rset_ptr = param1;
+   struct kds_resource_set *rset = *rset_ptr;
+   wait_queue_head_t *wait_queue = param2;
+
+   kfree(rset_ptr);
+   kds_resource_set_release(&rset);
+   wake_up(wait_queue);
+}
+
+static int dma_buf_kds_check(struct kds_resource *kds,
+                             long unsigned int exclusive, int *poll_ret)
+{
+   /* Synchronous wait with 0 timeout - poll availability */
+   struct kds_resource_set *rset = kds_waitall(1,&exclusive,&kds,0);
+
+   if (IS_ERR(rset))
+       return POLLERR;
+
+   if (rset){
+       kds_resource_set_release(&rset);
+       *poll_ret = POLLIN | POLLRDNORM;
+       if (exclusive)
+           *poll_ret |=  POLLOUT | POLLWRNORM;
+       return 1;
+   }else{
+       return 0;
+   }
 }
 
 static loff_t dma_buf_llseek(struct file *file, loff_t offset, int whence)
@@ -303,6 +339,9 @@ static const struct file_operations dma_buf_fops = {
 	.llseek		= dma_buf_llseek,
 	.poll		= dma_buf_poll,
 	.unlocked_ioctl	= dma_buf_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= dma_buf_ioctl,
+#endif
 };
 
 /*
@@ -389,6 +428,11 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 
 	mutex_init(&dmabuf->lock);
 	INIT_LIST_HEAD(&dmabuf->attachments);
+
+    init_waitqueue_head(&dmabuf->wq_exclusive);
+    init_waitqueue_head(&dmabuf->wq_shared);
+    kds_resource_init(&dmabuf->kds);
+    kds_callback_init(&dmabuf->kds_cb, 1, dma_buf_kds_cb_fn);
 
 	mutex_lock(&db_list.lock);
 	list_add(&dmabuf->list_node, &db_list.head);
@@ -548,7 +592,7 @@ EXPORT_SYMBOL_GPL(dma_buf_detach);
 struct sg_table *dma_buf_map_attachment(struct dma_buf_attachment *attach,
 					enum dma_data_direction direction)
 {
-	struct sg_table *sg_table = ERR_PTR(-EINVAL);
+	struct sg_table *sg_table;
 
 	might_sleep();
 

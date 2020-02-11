@@ -28,6 +28,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/vmalloc.h>
 #include <linux/swiotlb.h>
+#include <linux/platform_device.h>
 
 #include <asm/cacheflush.h>
 
@@ -352,6 +353,13 @@ static int __swiotlb_dma_supported(struct device *hwdev, u64 mask)
 	return 1;
 }
 
+static int __swiotlb_dma_mapping_error(struct device *hwdev, dma_addr_t addr)
+{
+	if (swiotlb)
+		return swiotlb_dma_mapping_error(hwdev, addr);
+	return 0;
+}
+
 static struct dma_map_ops swiotlb_dma_ops = {
 	.alloc = __dma_alloc,
 	.free = __dma_free,
@@ -366,7 +374,7 @@ static struct dma_map_ops swiotlb_dma_ops = {
 	.sync_sg_for_cpu = __swiotlb_sync_sg_for_cpu,
 	.sync_sg_for_device = __swiotlb_sync_sg_for_device,
 	.dma_supported = __swiotlb_dma_supported,
-	.mapping_error = swiotlb_dma_mapping_error,
+	.mapping_error = __swiotlb_dma_mapping_error,
 };
 
 static int __init atomic_pool_init(void)
@@ -524,7 +532,8 @@ EXPORT_SYMBOL(dummy_dma_ops);
 
 static int __init arm64_dma_init(void)
 {
-	if (swiotlb_force || max_pfn > (arm64_dma_phys_limit >> PAGE_SHIFT))
+	if (swiotlb_force == SWIOTLB_FORCE ||
+	    max_pfn > (arm64_dma_phys_limit >> PAGE_SHIFT))
 		swiotlb = 1;
 
 	return atomic_pool_init();
@@ -828,14 +837,21 @@ static bool do_iommu_attach(struct device *dev, const struct iommu_ops *ops,
 	 * then the IOMMU core will have already configured a group for this
 	 * device, and allocated the default domain for that group.
 	 */
-	if (!domain || iommu_dma_init_domain(domain, dma_base, size, dev)) {
-		pr_warn("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
-			dev_name(dev));
-		return false;
+	if (!domain)
+		goto out_err;
+
+	if (domain->type == IOMMU_DOMAIN_DMA) {
+		if (iommu_dma_init_domain(domain, dma_base, size, dev))
+			goto out_err;
+
+		dev->archdata.dma_ops = &iommu_dma_ops;
 	}
 
-	dev->archdata.dma_ops = &iommu_dma_ops;
 	return true;
+out_err:
+	pr_warn("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
+		 dev_name(dev));
+	return false;
 }
 
 static void queue_iommu_attach(struct device *dev, const struct iommu_ops *ops,
@@ -962,4 +978,26 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 
 	dev->archdata.dma_coherent = coherent;
 	__iommu_setup_dma_ops(dev, dma_base, size, iommu);
+}
+
+
+
+void arch_setup_pdev_archdata(struct platform_device *pdev)
+{
+	if (!pdev->dev.archdata.dma_ops)
+		pdev->dev.archdata.dma_ops = &swiotlb_dma_ops;
+
+	/*
+	 * Set default coherent_dma_mask to 64 bit. Drivers are expected to
+	 * setup the correct supported mask.
+	 */
+	if (!pdev->dev.coherent_dma_mask)
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+
+	/*
+	 * Set it to coherent_dma_mask by default if the architecture
+	 * code has not set it.
+	 */
+	if (!pdev->dev.dma_mask)
+		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 }

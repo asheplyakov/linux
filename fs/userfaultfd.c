@@ -63,6 +63,7 @@ struct userfaultfd_wait_queue {
 	struct uffd_msg msg;
 	wait_queue_t wq;
 	struct userfaultfd_ctx *ctx;
+	bool waken;
 };
 
 struct userfaultfd_wake_range {
@@ -86,6 +87,12 @@ static int userfaultfd_wake_function(wait_queue_t *wq, unsigned mode,
 	if (len && (start > uwq->msg.arg.pagefault.address ||
 		    start + len <= uwq->msg.arg.pagefault.address))
 		goto out;
+	WRITE_ONCE(uwq->waken, true);
+	/*
+	 * The implicit smp_mb__before_spinlock in try_to_wake_up()
+	 * renders uwq->waken visible to other CPUs before the task is
+	 * waken.
+	 */
 	ret = wake_up_state(wq->private, mode);
 	if (ret)
 		/*
@@ -264,6 +271,7 @@ int handle_userfault(struct fault_env *fe, unsigned long reason)
 	struct userfaultfd_wait_queue uwq;
 	int ret;
 	bool must_wait, return_to_userland;
+	long blocking_state;
 
 	BUG_ON(!rwsem_is_locked(&mm->mmap_sem));
 
@@ -333,10 +341,13 @@ int handle_userfault(struct fault_env *fe, unsigned long reason)
 	uwq.wq.private = current;
 	uwq.msg = userfault_msg(fe->address, fe->flags, reason);
 	uwq.ctx = ctx;
+	uwq.waken = false;
 
 	return_to_userland =
 		(fe->flags & (FAULT_FLAG_USER|FAULT_FLAG_KILLABLE)) ==
 		(FAULT_FLAG_USER|FAULT_FLAG_KILLABLE);
+	blocking_state = return_to_userland ? TASK_INTERRUPTIBLE :
+			 TASK_KILLABLE;
 
 	spin_lock(&ctx->fault_pending_wqh.lock);
 	/*
@@ -349,8 +360,7 @@ int handle_userfault(struct fault_env *fe, unsigned long reason)
 	 * following the spin_unlock to happen before the list_add in
 	 * __add_wait_queue.
 	 */
-	set_current_state(return_to_userland ? TASK_INTERRUPTIBLE :
-			  TASK_KILLABLE);
+	set_current_state(blocking_state);
 	spin_unlock(&ctx->fault_pending_wqh.lock);
 
 	must_wait = userfaultfd_must_wait(ctx, fe->address, fe->flags, reason);
@@ -362,6 +372,29 @@ int handle_userfault(struct fault_env *fe, unsigned long reason)
 		wake_up_poll(&ctx->fd_wqh, POLLIN);
 		schedule();
 		ret |= VM_FAULT_MAJOR;
+
+		/*
+		 * False wakeups can orginate even from rwsem before
+		 * up_read() however userfaults will wait either for a
+		 * targeted wakeup on the specific uwq waitqueue from
+		 * wake_userfault() or for signals or for uffd
+		 * release.
+		 */
+		while (!READ_ONCE(uwq.waken)) {
+			/*
+			 * This needs the full smp_store_mb()
+			 * guarantee as the state write must be
+			 * visible to other CPUs before reading
+			 * uwq.waken from other CPUs.
+			 */
+			set_current_state(blocking_state);
+			if (READ_ONCE(uwq.waken) ||
+			    READ_ONCE(ctx->released) ||
+			    (return_to_userland ? signal_pending(current) :
+			     fatal_signal_pending(current)))
+				break;
+			schedule();
+		}
 	}
 
 	__set_current_state(TASK_RUNNING);
@@ -386,7 +419,7 @@ int handle_userfault(struct fault_env *fe, unsigned long reason)
 			 * in such case.
 			 */
 			down_read(&mm->mmap_sem);
-			ret = 0;
+			ret = VM_FAULT_NOPAGE;
 		}
 	}
 
@@ -431,6 +464,7 @@ static int userfaultfd_release(struct inode *inode, struct file *file)
 	/* len == 0 means wake all */
 	struct userfaultfd_wake_range range = { .len = 0, };
 	unsigned long new_flags;
+	bool still_valid;
 
 	ACCESS_ONCE(ctx->released) = true;
 
@@ -446,6 +480,7 @@ static int userfaultfd_release(struct inode *inode, struct file *file)
 	 * taking the mmap_sem for writing.
 	 */
 	down_write(&mm->mmap_sem);
+	still_valid = mmget_still_valid(mm);
 	prev = NULL;
 	for (vma = mm->mmap; vma; vma = vma->vm_next) {
 		cond_resched();
@@ -456,15 +491,17 @@ static int userfaultfd_release(struct inode *inode, struct file *file)
 			continue;
 		}
 		new_flags = vma->vm_flags & ~(VM_UFFD_MISSING | VM_UFFD_WP);
-		prev = vma_merge(mm, prev, vma->vm_start, vma->vm_end,
-				 new_flags, vma->anon_vma,
-				 vma->vm_file, vma->vm_pgoff,
-				 vma_policy(vma),
-				 NULL_VM_UFFD_CTX);
-		if (prev)
-			vma = prev;
-		else
-			prev = vma;
+		if (still_valid) {
+			prev = vma_merge(mm, prev, vma->vm_start, vma->vm_end,
+					 new_flags, vma->anon_vma,
+					 vma->vm_file, vma->vm_pgoff,
+					 vma_policy(vma),
+					 NULL_VM_UFFD_CTX);
+			if (prev)
+				vma = prev;
+			else
+				prev = vma;
+		}
 		vma->vm_flags = new_flags;
 		vma->vm_userfaultfd_ctx = NULL_VM_UFFD_CTX;
 	}
@@ -769,6 +806,9 @@ static int userfaultfd_register(struct userfaultfd_ctx *ctx,
 		goto out;
 
 	down_write(&mm->mmap_sem);
+	if (!mmget_still_valid(mm))
+		goto out_unlock;
+
 	vma = find_vma_prev(mm, start, &prev);
 	if (!vma)
 		goto out_unlock;
@@ -914,6 +954,9 @@ static int userfaultfd_unregister(struct userfaultfd_ctx *ctx,
 		goto out;
 
 	down_write(&mm->mmap_sem);
+	if (!mmget_still_valid(mm))
+		goto out_unlock;
+
 	vma = find_vma_prev(mm, start, &prev);
 	if (!vma)
 		goto out_unlock;
