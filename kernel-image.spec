@@ -249,6 +249,10 @@ touch %buildroot%modules_dir/modules.{alias,dep,symbols,builtin}.bin
 %dir %modules_dir
 %modules_dir/build
 
+%post
+rm -f /boot/dtb
+ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
+
 %changelog
 * Tue Feb 11 2020 Dmitry Terekhin <jqt4@altlinux.org> 4.9.205-alt1
 - updated from SDK-M-4.1
