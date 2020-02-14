@@ -2,7 +2,7 @@
 %define kernel_sublevel        .205
 %define kernel_extra_version	%nil
 
-Name: kernel-image-bfkm
+Name: kernel-image-dbm-def
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 Release: alt1
 
