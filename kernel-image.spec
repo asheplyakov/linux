@@ -1,8 +1,8 @@
 %define kernel_base_version	4.9
-%define kernel_sublevel        .205
+%define kernel_sublevel        .208
 %define kernel_extra_version	%nil
 
-Name: kernel-image-dbm-def
+Name: kernel-image-bmitx-def
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 Release: alt1
 
@@ -254,6 +254,9 @@ rm -f /boot/dtb
 ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
 
 %changelog
+* Mon Feb 17 2020 Dmitry Terekhin <jqt4@altlinux.org> 4.9.208-alt1
+- updated from https://share.baikalelectronics.ru/index.php/s/FPrYNPEAebKzCLC
+
 * Tue Feb 11 2020 Dmitry Terekhin <jqt4@altlinux.org> 4.9.205-alt1
 - updated from SDK-M-4.1
 
