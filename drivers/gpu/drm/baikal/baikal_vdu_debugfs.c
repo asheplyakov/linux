@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Baikal Electronics JSC
+ * Copyright (C) 2019-2020 Baikal Electronics JSC
  *
  * Author: Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>
  *

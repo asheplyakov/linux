@@ -64,6 +64,8 @@ struct baikal_pcie {
 	int			phy_count;	/* DT phy-names count */
 	struct phy		**phy;
 #endif
+	struct gpio_desc *reset_gpio;
+	char reset_name[32];
 };
 
 #define to_baikal_pcie(x)	container_of((x), struct baikal_pcie, pp)
@@ -493,6 +495,13 @@ static void baikal_pcie_host_init(struct pcie_port *pp)
 	struct baikal_pcie *pcie = to_baikal_pcie(pp);
 
 	dw_pcie_setup_rc(pp);
+
+#if 0 //vvv
+	if (pcie->reset_gpio) {
+		gpiod_set_value_cansleep(pcie->reset_gpio, 0);
+		mdelay(20);
+	}
+#endif
 
 	baikal_pcie_establish_link(pcie);
 
@@ -1120,7 +1129,10 @@ static int __init baikal_pcie_probe(struct platform_device *pdev)
 	int err;
 	int (*hw_init_fn)(struct baikal_pcie *);
 	u32 index[2];
+	enum of_gpio_flags flags;
+	int reset_gpio;
 	dev_dbg(dev, "pci be_debug %x\n", be_debug);
+
 
 	if (be_debug) {
 		if(be_debug == 1) {
@@ -1160,9 +1172,31 @@ static int __init baikal_pcie_probe(struct platform_device *pdev)
 		goto err_pm_disable;
 	}
 
+
 	baikal_pcie_cease_link(pcie);
 
 	/* LINK DISABLED */
+	reset_gpio = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0, &flags);
+	if (reset_gpio != -EPROBE_DEFER && gpio_is_valid(reset_gpio)) {
+		unsigned long gpio_flags;
+
+		snprintf(pcie->reset_name, 32, "pcie%d-reset", pcie->bus_nr);
+		if (flags & OF_GPIO_ACTIVE_LOW)
+			gpio_flags = GPIOF_ACTIVE_LOW | GPIOF_OUT_INIT_LOW;
+		else
+			gpio_flags = GPIOF_OUT_INIT_HIGH;
+		err = devm_gpio_request_one(dev, reset_gpio, gpio_flags,
+					    pcie->reset_name);
+		if (err) {
+			dev_err(dev, "request GPIO failed (%d)\n", err);
+			goto err_pm_disable;
+		}
+		pcie->reset_gpio = gpio_to_desc(reset_gpio);
+
+		udelay(100);
+//vvv: do it now or later in baikal_pcie_host_init()?
+		gpiod_set_value_cansleep(pcie->reset_gpio, 0);
+	}
 
 	err = hw_init_fn(pcie);
 	if (err) {

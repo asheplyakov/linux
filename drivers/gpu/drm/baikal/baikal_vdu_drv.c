@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Baikal Electronics JSC
+ * Copyright (C) 2019-2020 Baikal Electronics JSC
  *
  * Author: Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>
  *
@@ -39,9 +39,9 @@
 
 #define DRIVER_NAME		"baikal-vdu"
 #define DRIVER_DESC		"DRM module for Baikal VDU"
-#define DRIVER_DATE		"20191227"
+#define DRIVER_DATE		"20200131"
 
-int mode_fixup = -1;
+int mode_fixup = 0;
 
 static void baikal_vdu_fb_output_poll_changed(struct drm_device *dev)
 {

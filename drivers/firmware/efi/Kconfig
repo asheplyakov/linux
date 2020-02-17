@@ -133,3 +133,9 @@ endmenu
 
 config UEFI_CPER
 	bool
+
+config EFI_EARLYCON
+	def_bool y
+	depends on SERIAL_EARLYCON && !ARM && !IA64
+	select FONT_SUPPORT
+	select ARCH_USE_MEMREMAP_PROT

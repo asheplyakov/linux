@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Baikal Electronics JSC
+ * Copyright (C) 2019-2020 Baikal Electronics JSC
  *
  * Author: Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>
  *
@@ -61,39 +61,15 @@ irqreturn_t baikal_vdu_irq(int irq, void *data)
 	struct drm_device *drm = data;
 	struct baikal_vdu_private *priv = drm->dev_private;
 	irqreturn_t status = IRQ_NONE;
-	unsigned long flags;
 	u32 raw_stat;
 	u32 irq_stat;
 
-	static u64 t1 = 0, t2;
-
 	irq_stat = readl(priv->regs + IVR);
+	raw_stat = readl(priv->regs + ISR);
 
 	if (irq_stat & INTR_VCT) {
-		t1 = read_sysreg(CNTVCT_EL0);
-		priv->enable_update = false;
-		spin_lock_irqsave(&priv->lock, flags);
-		writel(readl(priv->regs + DBAR) + priv->pending_end, priv->regs + MRR);
-		spin_unlock_irqrestore(&priv->lock, flags);
-		status = IRQ_HANDLED;
-	}
-	if (irq_stat & INTR_BAU) {
-		t2 = read_sysreg(CNTVCT_EL0);
-		if (t1) {
-			u32 dt = t2 - t1;
-			t1 = 0;
-			if (priv->counters[5] > dt)
-				priv->counters[5] = dt;
-			priv->counters[6] += dt;
-			priv->counters[6] /= 2;
-			if (priv->counters[7] < dt && dt < 0x40000)
-				priv->counters[7] = dt;
-			priv->counters[8]++;
-		} else {
-			priv->counters[9]++;
-		}
+		priv->counters[10]++;
 		drm_crtc_handle_vblank(&priv->crtc);
-		priv->enable_update = true;
 		status = IRQ_HANDLED;
 	}
 
@@ -105,11 +81,10 @@ irqreturn_t baikal_vdu_irq(int irq, void *data)
 		status = IRQ_HANDLED;
 	}
 
-	raw_stat = readl(priv->regs + ISR);
 	priv->counters[3] |= raw_stat;
 
 	/* Clear all interrupts */
-	writel(0x3ffff, priv->regs + ISR);
+	writel(irq_stat, priv->regs + ISR);
 
 	return status;
 }
@@ -283,9 +258,7 @@ int baikal_vdu_enable_vblank(struct drm_device *drm, unsigned int crtc)
 	/* clear interrupt status */
 	writel(0x3ffff, priv->regs + ISR);
 
-	priv->counters[5] = 0x7fffffff;
-
-	writel(INTR_BAU + INTR_VCT + INTR_FER, priv->regs + IMR);
+	writel(INTR_VCT + INTR_FER, priv->regs + IMR);
 
 	return 0;
 }
@@ -297,7 +270,7 @@ void baikal_vdu_disable_vblank(struct drm_device *drm, unsigned int crtc)
 	/* clear interrupt status */
 	writel(0x3ffff, priv->regs + ISR);
 
-	//writel(0, priv->regs + IMR);
+	writel(INTR_FER, priv->regs + IMR);
 }
 
 const struct drm_crtc_funcs crtc_funcs = {

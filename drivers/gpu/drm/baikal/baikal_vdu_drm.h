@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Baikal Electronics JSC
+ * Copyright (C) 2019-2020 Baikal Electronics JSC
  *
  * Author: Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>
  *
@@ -29,7 +29,7 @@ struct drm_device;
 struct drm_fbdev_cma;
 struct drm_panel;
 
-struct baikal_vdu_framebuffer {
+/*struct baikal_vdu_framebuffer {
 	u32 base;
 	u32 size;
 	u32 index;
@@ -37,7 +37,7 @@ struct baikal_vdu_framebuffer {
 	u32 reg_size;
 	u32 reg_width;
 	u32 reg_height;
-};
+};*/
 
 struct baikal_vdu_drm_connector {
 	struct drm_connector connector;
@@ -57,11 +57,7 @@ struct baikal_vdu_private {
 	void *regs;
 	struct clk *clk;
 	spinlock_t lock;
-	//u32 dbar, dear, mrr;
-	u32 pending_addr, pending_end;
-	atomic64_t dmac_state;
 	u32 counters[15];
-	bool enable_update;
 	int mode_fixup;
 };
 
@@ -100,4 +96,4 @@ int drm_of_find_panel_or_bridge(struct device_node *remote,
 int get_panel_or_bridge(struct device *dev,
 		                struct drm_panel **panel, struct drm_bridge **bridge);
 
-#endif /* _BAIKAL_VDU_DRM_H_ */
+#endif /* __BAIKAL_VDU_DRM_H__ */

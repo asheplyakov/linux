@@ -197,7 +197,7 @@
 			cache-size = <0x100000>;
 			cache-line-size = <64>;
 			cache-sets = <1024>;
-		}; 
+		};
 	};
 
 	timer {
@@ -535,7 +535,7 @@
 		clock-frequency  = <50000000>;
 		clocks = <&timer1_clk>;
 		clock-names = "soc_timer1clk";
-		
+
 		status = "disabled";
 	};
 
@@ -547,7 +547,7 @@
 		clock-frequency  = <50000000>;
 		clocks = <&timer2_clk>;
 		clock-names = "soc_timer2clk";
-		
+
 		status = "disabled";
 	};
 
@@ -559,7 +559,7 @@
 		clock-frequency  = <50000000>;
 		clocks = <&timer3_clk>;
 		clock-names = "soc_timer3clk";
-		
+
 		status = "disabled";
 	};
 
@@ -571,7 +571,7 @@
 		clock-frequency  = <50000000>;
 		clocks = <&timer4_clk>;
 		clock-names = "soc_timer4clk";
-		
+
 		status = "disabled";
 	};
 
@@ -774,8 +774,8 @@
 		clocks = <&soc_ethclk>, <&cmu0_xgbe 10>;
 		clock-names = "stmmaceth", "tx2_clk";
 		snps,fixed-burst;
-		mac-address = [ 4c a5 15 01 02 05 ];
-		local-mac-address = [ 4c a5 15 01 02 05 ];
+		mac-address = [ 00 00 00 00 00 00 ];
+		local-mac-address = [ 00 00 00 00 00 00 ];
 		phy-mode = "rgmii-id";
 		phy-handle = <&gmac0_phy>;
 		snps,reset-gp-out;
@@ -813,8 +813,8 @@
 		clocks = <&soc_ethclk>, <&cmu0_xgbe 13>;
 		clock-names = "stmmaceth", "tx2_clk";
 		snps,fixed-burst;
-		mac-address = [ 4c a5 15 01 02 04 ];
-		local-mac-address = [ 4c a5 15 01 02 04 ];
+		mac-address = [ 00 00 00 00 00 00 ];
+		local-mac-address = [ 00 00 00 00 00 00 ];
 		phy-mode = "rgmii-id";
 		phy-handle = <&gmac1_phy>;
 		snps,reset-gp-out;

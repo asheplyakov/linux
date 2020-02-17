@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Baikal Electronics JSC
+ * Copyright (C) 2019-2020 Baikal Electronics JSC
  *
  * Author: Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>
  *
@@ -17,6 +17,7 @@
  *
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/of_graph.h>
@@ -30,6 +31,8 @@
 #include "baikal_vdu_drm.h"
 #include "baikal_vdu_regs.h"
 #include "baikal_vdu_helper.h"
+
+#define BAIKAL_SMC_VDU_UPDATE_HDMI	0x82000100
 
 static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 					    struct drm_plane_state *state)
@@ -52,7 +55,7 @@ static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 	if (__clk_is_enabled(priv->clk))
 		clk_disable_unprepare(priv->clk);
 	ret = clk_set_rate(priv->clk, rate);
-	DRM_DEV_DEBUG_DRIVER(dev->dev, "Requested pixel clock is %d Hz\n");
+	DRM_DEV_DEBUG_DRIVER(dev->dev, "Requested pixel clock is %d Hz\n", rate);
 
 	if (ret < 0) {
 		DRM_ERROR("Cannot set desired pixel clock (%d Hz)\n",
@@ -73,30 +76,20 @@ static void baikal_vdu_primary_plane_atomic_update(struct drm_plane *plane,
 {
 	struct drm_device *dev = plane->dev;
 	struct baikal_vdu_private *priv = dev->dev_private;
-	struct drm_framebuffer *fb = plane->state->fb;
-	u32 cntl, addr, size, dmac_base;
+	struct drm_plane_state *state = plane->state;
+	struct drm_framebuffer *fb = state->fb;
+	struct arm_smccc_res res;
+	u32 cntl, addr, end;
 	unsigned long flags;
 
 	if (!fb)
 		return;
 
-	addr = baikal_vdu_fb_cma_get_gem_addr(fb, plane->state, 0);
-	size = fb->height * fb->pitches[0];
-	priv->pending_end = ((size - 1) & MRR_DEAR_MRR_MASK) | MRR_OUTSTND_RQ(4);
+	addr = baikal_vdu_fb_cma_get_gem_addr(fb, state, 0);
+	end = ((addr + fb->height * fb->pitches[0] - 1) & MRR_DEAR_MRR_MASK) | MRR_OUTSTND_RQ(4);
 
 	spin_lock_irqsave(&priv->lock, flags);
-	dmac_base = readl(priv->regs + DBAR);
-	if (!dmac_base) {
-		writel(addr, priv->regs + DBAR);
-		writel(addr + priv->pending_end, priv->regs + MRR);
-	} else {
-		if (priv->enable_update) {
-			priv->counters[0]++;
-			writel(addr, priv->regs + DBAR);
-		} else {
-			priv->counters[1]++;
-		}
-	}
+	arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, addr, end, 0, 0, 0, 0, 0, &res);
 	spin_unlock_irqrestore(&priv->lock, flags);
 
 	cntl = readl(priv->regs + CR1);
@@ -150,7 +143,6 @@ static const struct drm_plane_helper_funcs baikal_vdu_primary_plane_helper_funcs
 	.atomic_check = baikal_vdu_primary_plane_atomic_check,
 	.atomic_update = baikal_vdu_primary_plane_atomic_update,
 };
-
 
 static const struct drm_plane_funcs baikal_vdu_primary_plane_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
