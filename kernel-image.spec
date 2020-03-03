@@ -4,7 +4,7 @@
 
 Name: kernel-image-bmitx-def
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
-Release: alt1
+Release: alt2
 
 %define kernel_extra_version_numeric 1.0.0
 
@@ -254,6 +254,10 @@ rm -f /boot/dtb
 ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
 
 %changelog
+* Tue Mar 03 2020 Dmitry Terekhin <jqt4@altlinux.org> 4.9.208-alt2
+- build the module mali_kbase.ko
+- this is kernel part for graphical acceleration on Mali T628
+
 * Mon Feb 17 2020 Dmitry Terekhin <jqt4@altlinux.org> 4.9.208-alt1
 - updated from https://share.baikalelectronics.ru/index.php/s/FPrYNPEAebKzCLC
 
