@@ -5,7 +5,7 @@ Release: alt1
 
 
 %define kernel_base_version	4.4
-%define kernel_sublevel .214
+%define kernel_sublevel .215
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 
@@ -305,7 +305,8 @@ in the kernel and update the documentation to reflect these changes.
 %endif
 
 %ifarch mipsel
-%define Image vmlinuz.bin
+%define ImageTarget vmlinux.bin
+%define ImagePath arch/%base_arch/boot/vmlinux.bin
 %endif
 
 %prep
@@ -334,7 +335,7 @@ cp -vf config-%_target_cpu .config
 
 %make_build oldconfig
 #%make_build include/linux/version.h
-%make_build %Image
+%make_build %ImageTarget
 %make_build modules
 %make_build dtbs
 
@@ -350,7 +351,7 @@ export ARCH=%base_arch
 KernelVer=%kversion-%flavour-%krelease
 
 install -Dp -m644 System.map %buildroot/boot/System.map-$KernelVer
-install -Dp -m644 %Image  %buildroot/boot/vmlinuz-$KernelVer
+install -Dp -m644 %ImagePath  %buildroot/boot/vmlinuz-$KernelVer
 install -Dp -m644 vmlinux %buildroot/boot/vmlinux-$KernelVer
 install -Dp -m644 .config %buildroot/boot/config-$KernelVer
 
@@ -576,6 +577,11 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Tue Mar 10 2020  Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.215-alt1
+  - Merged with linux-stable v4.4.215
+  - Revert to vmlinux.bin (uncompressed) kernel images so older hardware
+    can boot without reconfiguring uBoot
+
 * Fri Feb 21 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.214-alt1
   - Merged with linux-stable v4.4.214
 
