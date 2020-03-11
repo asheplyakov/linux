@@ -28,6 +28,16 @@
 
 #include <asm/setup.h>  /* for COMMAND_LINE_SIZE */
 #include <asm/page.h>
+#include <asm/sparsemem.h>
+
+#if config_enabled(CONFIG_OF_EARLY_INIT_MEM_FIXUP)
+#if !defined MAX_PHYSMEM_BITS
+#define MAX_PHYSMEM_BITS 36
+#endif
+#define PHYS_MEM_SIZE_MAX (1ULL << MAX_PHYSMEM_BITS)
+#else
+#define PHYS_MEM_SIZE_MAX (-1ULL)
+#endif
 
 /*
  * of_fdt_limit_memory - limit the number of regions in the /memory node
@@ -901,6 +911,10 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 {
 	const char *type = of_get_flat_dt_prop(node, "device_type", NULL);
 	const __be32 *reg, *endp;
+	const __be32 *startp;
+	int root_addr_cells = dt_root_addr_cells;
+	int root_size_cells = dt_root_size_cells;
+	int retried = 0;
 	int l;
 
 	/* We are scanning "memory" nodes only */
@@ -921,14 +935,27 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 		return 0;
 
 	endp = reg + (l / sizeof(__be32));
+	startp = reg;
 
 	pr_debug("memory scan node %s, reg size %d,\n", uname, l);
 
-	while ((endp - reg) >= (dt_root_addr_cells + dt_root_size_cells)) {
+retry:
+	while ((endp - reg) >= (root_addr_cells + root_size_cells)) {
 		u64 base, size;
 
-		base = dt_mem_next_cell(dt_root_addr_cells, &reg);
-		size = dt_mem_next_cell(dt_root_size_cells, &reg);
+		base = dt_mem_next_cell(root_addr_cells, &reg);
+		size = dt_mem_next_cell(root_size_cells, &reg);
+
+		if (config_enabled(CONFIG_OF_EARLY_INIT_MEM_FIXUP) &&
+				size > PHYS_MEM_SIZE_MAX && !retried) {
+			pr_warn("broken memory size %llu > PHYS_MEM_MAX_SIZE (%llu)\n",
+					(unsigned long long) size, PHYS_MEM_SIZE_MAX);
+			retried = 1;
+			reg = startp;
+			root_addr_cells = 1;
+			root_size_cells = 1;
+			goto retry;
+		}
 
 		if (size == 0)
 			continue;

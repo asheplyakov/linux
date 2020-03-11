@@ -116,4 +116,13 @@ config OF_DMA_DEFAULT_COHERENT
 	# arches should select this if DMA is coherent by default for OF devices
 	bool
 
+config OF_EARLY_INIT_MEM_FIXUP
+	bool "Broken FDT memory info fixup"
+	default n
+        help
+          Attempt to reparse broken memory info using 32-bit addresses and
+          sizes. Might be useful for booting on devices where uBoot
+          incorrectly assumes 32-bit sizes and addresses in FDT. Examples
+          of such devices are various Baikal-T1 SoC based boards.
+
 endif # OF

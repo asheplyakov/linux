@@ -545,6 +545,15 @@ config BAIKAL_ERRATA_GMAC
 
       If unsure, say N.
 
+config BAIKAL_ERRATA_FDT_MEM
+    bool "Fix for broken FDT memory info passed by uBoot"
+    default y
+    select OF_EARLY_INIT_MEM_FIXUP
+    help
+      Parse broken memory info passed by uBoot
+
+      If unsure, say Y
+
 endif # BAIKAL_ERRATA
 endif # MIPS_BAIKAL
 
