@@ -1,7 +1,7 @@
 %def_disable check
 
 Name: kernel-image-mitx-xpa
-Release: alt1
+Release: alt2
 
 
 %define kernel_base_version	4.4
@@ -577,6 +577,10 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Thu Mar 12 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.215-alt2
+  - Handle broken memory info in FDT so the kernel can boot out of the box
+    on BFK boards and older revisions of Tavolga terminals.
+
 * Tue Mar 10 2020  Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.215-alt1
   - Merged with linux-stable v4.4.215
   - Revert to vmlinux.bin (uncompressed) kernel images so older hardware
