@@ -284,12 +284,19 @@ static void bmc_clear_pwroff(void)
 static int bmc_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int ret;
+	int attempt;
 
 	ret = bmc_check_host(client);
 	if (ret)
 		return ret;
 
-	ret = bmc_validate_dev(client);
+
+	for (attempt = 0; attempt < 10; attempt++) {
+		ret = bmc_validate_dev(client);
+		if (!ret) break;
+		dev_info(&client->dev, "BMC validation attempt %i failed\n", attempt + 1);
+		msleep_interruptible(10);
+	}
 	if (ret)
 		goto err_clear_priv;
 
