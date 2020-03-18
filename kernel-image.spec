@@ -1,7 +1,7 @@
 %def_disable check
 
 Name: kernel-image-mitx-xpa
-Release: alt2
+Release: alt3
 
 
 %define kernel_base_version	4.4
@@ -577,6 +577,9 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Wed Mar 18 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.215-alt3
+- Fix BMC initialization on older Tavolga boards.
+
 * Thu Mar 12 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.215-alt2
   - Handle broken memory info in FDT so the kernel can boot out of the box
     on BFK boards and older revisions of Tavolga terminals.
