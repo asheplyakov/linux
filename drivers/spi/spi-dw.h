@@ -127,6 +127,7 @@ struct dw_spi {
 	u32			dma_width;
 	irqreturn_t		(*transfer_handler)(struct dw_spi *dws);
 	u32			current_freq;	/* frequency in hz */
+	int			chip_select;
 
 	/* DMA info */
 	int			dma_inited;

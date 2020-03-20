@@ -188,6 +188,8 @@ static void dw_writer(struct dw_spi *dws)
 		dw_write_io_reg(dws, DW_SPI_DR, txw);
 		dws->tx += dws->n_bytes;
 	}
+	/* restart transmission if chip_select dropped */
+	dw_writel(dws, DW_SPI_SER, BIT(dws->chip_select));
 	spin_unlock(&dws->buf_lock);
 }
 
@@ -295,6 +297,7 @@ static int dw_spi_transfer_one(struct spi_controller *master,
 	dws->rx = transfer->rx_buf;
 	dws->rx_end = dws->rx + transfer->len;
 	dws->len = transfer->len;
+	dws->chip_select = spi->chip_select;
 	spin_unlock_irqrestore(&dws->buf_lock, flags);
 
 	/* Ensure dw->rx and dw->rx_end are visible */
