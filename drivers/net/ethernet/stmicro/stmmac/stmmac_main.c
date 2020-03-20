@@ -2231,6 +2231,28 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
 		return ret;
 	}
 
+#if IS_ENABLED(CONFIG_OF)
+	if (priv->device->of_node) {
+		struct device_node *np = priv->device->of_node;
+		if (of_device_is_compatible(np, "be,dwmac")) {
+			u32 delays[3] = { 0, 0, 0 };
+			of_property_read_u32_array(np,
+						   "snps,reset-delays-us",
+						   delays,
+						   ARRAY_SIZE(delays));
+			if (delays[2])
+				msleep(DIV_ROUND_UP(delays[2], 1000));
+
+			dev_info(priv->device, "attempt to reinit PHY after DMA reset\n");
+			ret = phy_init_hw(priv->dev->phydev);
+			if (ret) {
+				dev_err(priv->device, "failed to re-init PHY\n");
+				return ret;
+			}
+		}
+	}
+#endif
+
 	/* DMA Configuration */
 	stmmac_dma_init(priv, priv->ioaddr, priv->plat->dma_cfg, atds);
 

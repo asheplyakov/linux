@@ -287,19 +287,11 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
 				  100, 10000);
 }
 
-/**
- * stmmac_mdio_reset
- * @bus: points to the mii_bus structure
- * Description: reset the MII bus
- */
-int stmmac_mdio_reset(struct mii_bus *bus)
-{
 #if IS_ENABLED(CONFIG_STMMAC_PLATFORM)
-	struct net_device *ndev = bus->priv;
-	struct stmmac_priv *priv = netdev_priv(ndev);
-	unsigned int mii_address = priv->hw->mii.addr;
+#if IS_ENABLED(CONFIG_OF)
 
-#ifdef CONFIG_OF
+static int stmmac_mdio_reset_gpio_api(struct stmmac_priv *priv)
+{
 	if (priv->device->of_node) {
 		struct gpio_desc *reset_gpio;
 		u32 delays[3] = { 0, 0, 0 };
@@ -325,6 +317,68 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 		if (delays[2])
 			msleep(DIV_ROUND_UP(delays[2], 1000));
 	}
+	return 0;
+}
+
+static int stmmac_mdio_reset_gp_out(struct stmmac_priv *priv)
+{
+	struct device_node *np = priv->device->of_node;
+	u32 delays[3] = { 0, 0, 0 };
+	u32 value, high, low;
+	bool reset_gp_out, active_low;
+
+	reset_gp_out = of_property_read_bool(np, "snps,reset-gp-out");
+	if (!reset_gp_out) {
+		dev_err(priv->device, "failed to read reset-gp-out property\n");
+		return -ENODEV;
+	}
+	active_low = of_property_read_bool(np, "snps,reset-active-low");
+	of_property_read_u32_array(np, "snps-reset-delay-us", delays, ARRAY_SIZE(delays));
+
+	value = readl(priv->ioaddr + MAC_GPIO);
+	if (active_low) {
+		high = value | MAC_GPIO_GPO0;
+		low = value & ~MAC_GPIO_GPO0;
+	} else {
+		high = value & ~MAC_GPIO_GPO0;
+		low = value | MAC_GPIO_GPO0;
+	}
+
+	writel(high, priv->ioaddr + MAC_GPIO);
+	if (delays[0])
+		msleep(DIV_ROUND_UP(delays[0], 1000));
+
+	writel(low, priv->ioaddr + MAC_GPIO);
+	if (delays[1])
+		msleep(DIV_ROUND_UP(delays[1], 1000));
+
+	writel(high, priv->ioaddr + MAC_GPIO);
+	if (delays[2])
+		msleep(DIV_ROUND_UP(delays[2], 1000));
+
+	return 0;
+}
+#endif
+#endif
+
+/**
+ * stmmac_mdio_reset
+ * @bus: points to the mii_bus structure
+ * Description: reset the MII bus
+ */
+int stmmac_mdio_reset(struct mii_bus *bus)
+{
+#if IS_ENABLED(CONFIG_STMMAC_PLATFORM)
+	struct net_device *ndev = bus->priv;
+	struct stmmac_priv *priv = netdev_priv(ndev);
+	unsigned int mii_address = priv->hw->mii.addr;
+
+#ifdef CONFIG_OF
+	if (priv->device->of_node) {
+		/* Try resetting using GPIO API, if failed try MAC GP out pin */
+		if (stmmac_mdio_reset_gpio_api(priv))
+			stmmac_mdio_reset_gp_out(priv);
+	}
 #endif
 
 	/* This is a workaround for problems with the STE101P PHY.
@@ -334,6 +388,24 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	 */
 	if (!priv->plat->has_gmac4)
 		writel(0, priv->ioaddr + mii_address);
+
+#ifdef CONFIG_OF
+	if (priv->device->of_node) {
+		if (of_device_is_compatible(priv->device->of_node, "be,dwmac")) {
+			u32 value;
+			dev_info(priv->device, "applying Baikal PHY reset fixup\n");
+			/* clear PHY reset */
+			udelay(10);
+			value = readl(priv->ioaddr + MAC_GPIO);
+			value |= MAC_GPIO_GPO0;
+			writel(value, priv->ioaddr + MAC_GPIO);
+			mdelay(1000);
+			dev_info(priv->device, "PHY has been initialized\n");
+
+		}
+	}
+#endif
+
 #endif
 	return 0;
 }

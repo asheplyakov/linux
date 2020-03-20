@@ -385,6 +385,8 @@ struct dma_features {
 #define MAC_CTRL_REG		0x00000000	/* MAC Control */
 #define MAC_ENABLE_TX		0x00000008	/* Transmitter Enable */
 #define MAC_ENABLE_RX		0x00000004	/* Receiver Enable */
+#define MAC_GPIO		0x000000e0	/* GPIO register */
+#define MAC_GPIO_GPO0		(1 << 8)	/* 0-output port */
 
 /* Default LPI timers */
 #define STMMAC_DEFAULT_LIT_LS	0x3E8

@@ -22,9 +22,17 @@ int dwmac_dma_reset(void __iomem *ioaddr)
 	value |= DMA_BUS_MODE_SFT_RESET;
 	writel(value, ioaddr + DMA_BUS_MODE);
 
+#if 1 || IS_ENABLED(CONFIG_BAIKAL_DWMAC)
+	udelay(10);
+	value = readl(ioaddr + MAC_GPIO);
+	value |= MAC_GPIO_GPO0;
+	writel(value, ioaddr + MAC_GPIO);
+	pr_info("PHY re-inited for Baikal DWMAC\n");
+#endif
+
 	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
 				 !(value & DMA_BUS_MODE_SFT_RESET),
-				 10000, 100000);
+				 10000, 1000000);
 	if (err)
 		return -EBUSY;
 
