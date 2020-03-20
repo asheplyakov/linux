@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/ {
+	soc {
+		gpu: gpu@2a200000 {
+			compatible = "arm,mali-midgard", "arm,mali-t628";
+			#cooling-cells = <2>; /* min followed by max */
+			reg = <0x0 0x2a200000 0x0 0x4000>;
+			interrupts = <0 175 4 0 176 4 0 174 4>;
+			interrupt-names = "job", "mmu", "gpu";
+			clocks = <&gpu_clk>;
+			clock-names = "gpuclk";
+		};
+	};
+};
