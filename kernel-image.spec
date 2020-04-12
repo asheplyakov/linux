@@ -4,7 +4,7 @@
 
 Name: kernel-image-bmitx-def
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
-Release: alt2
+Release: alt3
 
 %define kernel_extra_version_numeric 1.0.0
 
@@ -16,7 +16,7 @@ Release: alt2
 
 # Build options
 # You can change compiler version by editing this line:
-%define kgcc_version	8
+%define kgcc_version	7
 
 ## Don't edit below this line ##################################
 
@@ -34,6 +34,7 @@ License: GPL
 Group: System/Kernel and hardware
 Url: http://www.kernel.org/
 
+Source: %name-%version.tar
 Patch0: %name-%version-%release.patch
 
 ExclusiveArch: aarch64
@@ -44,7 +45,6 @@ BuildRequires(pre): rpm-build-kernel
 BuildRequires: bc flex kmod lzma-utils
 BuildRequires: libdb4-devel
 BuildRequires: gcc%kgcc_version
-BuildRequires: kernel-source-%kernel_base_version = %kernel_extra_version_numeric
 BuildRequires: libssl-devel
 
 %if_enabled ccache
@@ -99,10 +99,7 @@ and specify %kbuild_dir as the kernel source
 directory.
 
 %prep
-%setup -cT -n kernel-image-%flavour-%kversion-%krelease
-rm -rf kernel-source-%kernel_base_version
-tar -xf %kernel_src/kernel-source-%kernel_base_version.tar
-%setup -D -T -n kernel-image-%flavour-%kversion-%krelease/kernel-source-%kernel_base_version
+%setup
 %patch0 -p1
 
 # this file should be usable both with make and sh (for broken modules
@@ -254,6 +251,10 @@ rm -f /boot/dtb
 ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
 
 %changelog
+* Sun Apr 12 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.208-alt3
+- Merged with linux-stable v4.9.208 to make tracking changes (by Baikal
+  Electronics) easier
+
 * Tue Mar 03 2020 Dmitry Terekhin <jqt4@altlinux.org> 4.9.208-alt2
 - build the module mali_kbase.ko
 - this is kernel part for graphical acceleration on Mali T628
