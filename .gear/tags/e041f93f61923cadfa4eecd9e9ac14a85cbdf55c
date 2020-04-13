@@ -1,0 +1,22 @@
+object 19c646f01e4ace1e5e5b3de2749de25bc86b79a1
+type commit
+tag v4.9.216
+tagger Greg Kroah-Hartman <gregkh@linuxfoundation.org> 1583909594 +0100
+
+This is the 4.9.216 stable release
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEZH8oZUiU471FcZm+ONu9yGCSaT4FAl5oitoACgkQONu9yGCS
+aT617Q/8Dk8BDWkAeGzyxkdSmSwHbF/fRsF14iCXZdH4896J4Lpti6ku5XvTfzqq
+8gQqjo36FP5/8gohuc5vwZCPnUzEw6MAzF5jR/T6uNny5wsS1I/TP9SsggEhUF5Z
+e6qg6OyRKOyfT0Q46bZMslJRQzqyZikVIr0IflP20emIBo2okAg1N+fHdhhpeqKk
+3+dagpksRwCtaWGROO9jV9rcuvFR9WbR3UuuJr+MLRbF2Hp2MBK6VWq3qhbLEhd9
+E23rlpZ/qJGiTtUbMzw5DqRCnqYlz2Gf02mltjKPOhnzEl1NmLCP29qygkluUI/Q
+a7a3lw+XLlhd1adXS+xg3jv9Nkl3gjCgS7VPqVJEdzaTFh/TvEaC4jJxLXlyATEr
+t6C3y6pa2eHK/Qj5jfDzV/nIJI5z0AcRgMW/0Hkyb8effxad4DaxSdQ8SQmpLaDd
+wNwKAEhxFeAjJXoQOdrKiSGrPe8/h4pq3UNFajA9YvB8hxjN2TS/5X4Fh//uLtB9
+VEzKw8d2XlutIDqpF6QRrQZZZ88dDHPALpcAEIVDbBWT1gjSGPOWCVZtybIlbgw5
+9shE/kQRUMChEf4LAuWtjhx3TOHUa3faaRIIvCGW2TPPdXfkHgto8G79M7IOfxAf
+tygDixkP2tDPJju0VRbcOp+Z+f7yOZbxXgV63aXQPj8h0nWJJpA=
+=KwBy
+-----END PGP SIGNATURE-----

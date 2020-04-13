@@ -1,10 +1,10 @@
 %define kernel_base_version	4.9
-%define kernel_sublevel        .208
+%define kernel_sublevel        .216
 %define kernel_extra_version	%nil
 
 Name: kernel-image-bmitx-def
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
-Release: alt3
+Release: alt1
 
 %define kernel_extra_version_numeric 1.0.0
 
@@ -251,6 +251,13 @@ rm -f /boot/dtb
 ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
 
 %changelog
+* Mon Apr 13 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.216-alt1
+- Updates from Baikal SDK-M-4.2
+  WARNING: the kernel depends on firmware from the same version of SDK.
+- Merged with linux-stable v4.9.216
+- Build preemptible kernel
+- Enabled more drivers (GPUs, web cameras, virtio, HD audio, etc)
+
 * Sun Apr 12 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.208-alt3
 - Merged with linux-stable v4.9.208 to make tracking changes (by Baikal
   Electronics) easier
