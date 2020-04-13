@@ -26,15 +26,6 @@
 		linux,initrd-end = <0x0 0x81490000>;*/
 	};
 
-	memory@80000000 {
-		device_type = "memory";
-		/*2GB*/
-		/*reg = <0x00000000 0x80000000 0x0 0x80000000>;*/
-		/*16GB*/
-		reg = <0x00000000 0x80000000 0x0 0x80000000
-		       0x00000008 0x80000000 0x3 0x80000000>;
-	};
-
 	/*
 	reserved-memory {
 		#address-cells = <1>;
@@ -121,6 +112,10 @@
 	status = "okay";
 };
 
+&mmc0 {
+	status = "okay";
+};
+
 &usb3 {
 	status = "okay";
 };
@@ -189,15 +184,23 @@
 
 		ai31xx-micbias-vg = <MICBIAS_2_0V>;
 	};
+
+	rtc@56 {
+		compatible = "abracon,abeoz9";
+		reg = <0x56>;
+	};
 };
 
 &i2c1 {
 	status = "okay";
+};
 
-	rtc@ac {
-		compatible = "abracon,abeoz9";
-	};
+&smbus0 {
+	status = "okay";
+};
 
+&smbus1 {
+	status = "okay";
 };
 
 &i2s {

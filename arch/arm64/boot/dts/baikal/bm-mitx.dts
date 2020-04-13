@@ -1,5 +1,5 @@
 /*
- * Baikal-M evaluation board device tree (test version)
+ * Baikal-M Mini-ITX board device tree (test version)
  *
  */
 
@@ -40,15 +40,6 @@
 		bootargs = "root=/dev/ram rw rootwait console=ttyS0,115200n8 earlyprintk=uart8250,mmio32,0x20230000,115200";
 		linux,initrd-start = <0x0 0x80490000>;
 		linux,initrd-end = <0x0 0x81490000>;*/
-	};
-
-	memory@80000000 {
-		device_type = "memory";
-		/*2GB*/
-		/*reg = <0x00000000 0x80000000 0x0 0x80000000>;*/
-		/*8GB*/
-		reg = <0x00000000 0x80000000 0x0 0x80000000
-		       0x00000008 0x80000000 0x1 0x80000000>;
 	};
 
 	/*
@@ -105,7 +96,6 @@
 	status = "okay";
 };
 
-
 &gpio {
 	status = "okay";
 };
@@ -123,6 +113,10 @@
 };
 
 &usb3 {
+	status = "okay";
+};
+
+&mmc0 {
 	status = "okay";
 };
 
@@ -184,21 +178,14 @@
 		reg = <0x08>;
 	};
 
-	gpioexp0: gpioexp@50 {
-		compatible = "nxp,pca9500";
-		#gpio-cells = <2>;
-		reg = <0x50>;
-		gpio-controller;
-	};
-
 	rtc@51 {
 		compatible = "nxp,pcf2129", "nxp,pcf2127";
 		reg = <0x51>;
 	};
 
 	eeprom@53 {
-		compatible = "atmel,24c08";
-		pagesize = <8>;
+		compatible = "atmel,24c32";
+		pagesize = <32>;
 		reg = <0x53>;
 	};
 
@@ -207,6 +194,14 @@
 &i2c1 {
 	status = "okay";
 
+};
+
+&smbus0 {
+	status = "okay";
+};
+
+&smbus1 {
+	status = "okay";
 };
 
 &spi0 {

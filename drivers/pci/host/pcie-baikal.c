@@ -392,39 +392,6 @@ static uint32_t dw_pcie_phy_write(struct pcie_port *pp, uint32_t phy_addr, uint3
 static int baikal_pcie_link_up(struct pcie_port *pp)
 {
 	struct baikal_pcie *rc = to_baikal_pcie(pp);
-	uint32_t misc_reg;
-	uint32_t coh_reg;
-	uint32_t class_reg;
-	u32	lcru_reg;
-
-	// Set class
-	lcru_reg = baikal_pcie_lcru_readl(rc->lcru, BAIKAL_LCRU_PCIE_GEN_CTL(rc->bus_nr));
-	baikal_pcie_lcru_writel(rc->lcru, BAIKAL_LCRU_PCIE_GEN_CTL(rc->bus_nr), lcru_reg & (~BAIKAL_PCIE_DBI2_MODE));
-
-	misc_reg = dw_pcie_readl_rc(pp, PCIE_MISC_CONTROL_1_OFF);
-	misc_reg |= DBI_RO_RW_EN;
-
-	dw_pcie_writel_rc(pp, PCIE_MISC_CONTROL_1_OFF, misc_reg);
-	class_reg = dw_pcie_readl_rc(pp, PCI_CLASS_REVISION);
-
-	class_reg = (0x604 << 16) | (class_reg & 0xff);			// class PCI_PCI_BRIDGE=0x604
-	dw_pcie_writel_rc(pp, PCI_CLASS_REVISION, class_reg);
-
-	misc_reg &= ~DBI_RO_RW_EN;
-	dw_pcie_writel_rc(pp, PCIE_MISC_CONTROL_1_OFF, misc_reg);
-	baikal_pcie_lcru_writel(rc->lcru, BAIKAL_LCRU_PCIE_GEN_CTL(rc->bus_nr), lcru_reg);
-	// Set coherence
-	coh_reg =
-		(0x7 << 27) | /* AWCACHE */
-		(0x2 << 24) | /* AWDOMAIN */
-		(0xb << 19) | /* ARCACHE */
-		(0x2 << 16) | /* ARDOMAIN */
-		(0xF << 11) | /* AWCACHE mode */
-		(0x3 <<  8) | /* AWDOMAIN mode */
-		(0xF <<  3) | /* ARCACHE mode */
-		(0x3 <<  0) /* ARDOMAIN mode */
-		;
-//	dw_pcie_writel_rc(pp, PCIE_COHERENCE_CONTROL_3_OFF, coh_reg);
 
 	u32 reg = baikal_pcie_lcru_readl(rc->lcru, BAIKAL_LCRU_PCIE_STATUS(rc->bus_nr));
 	return !!(reg & (BAIKAL_PCIE_RDLH_LINKUP | BAIKAL_PCIE_SMLH_LINKUP));
@@ -494,18 +461,40 @@ static void baikal_pcie_host_init(struct pcie_port *pp)
 {
 	struct baikal_pcie *pcie = to_baikal_pcie(pp);
 
+	u32 lcru_reg, misc_reg, class_reg, coh_reg;
+
 	dw_pcie_setup_rc(pp);
 
-#if 0 //vvv
-	if (pcie->reset_gpio) {
-		gpiod_set_value_cansleep(pcie->reset_gpio, 0);
-		mdelay(20);
-	}
-#endif
+	// Set class
+	lcru_reg = baikal_pcie_lcru_readl(pcie->lcru, BAIKAL_LCRU_PCIE_GEN_CTL(pcie->bus_nr));
+	baikal_pcie_lcru_writel(pcie->lcru, BAIKAL_LCRU_PCIE_GEN_CTL(pcie->bus_nr), lcru_reg & (~BAIKAL_PCIE_DBI2_MODE));
+
+	misc_reg = dw_pcie_readl_rc(pp, PCIE_MISC_CONTROL_1_OFF);
+	misc_reg |= DBI_RO_RW_EN;
+
+	dw_pcie_writel_rc(pp, PCIE_MISC_CONTROL_1_OFF, misc_reg);
+	class_reg = dw_pcie_readl_rc(pp, PCI_CLASS_REVISION);
+
+	class_reg = (0x604 << 16) | (1 << 8) | (class_reg & 0xff);	// class PCI_PCI_BRIDGE=0x604, prog-if=1
+	dw_pcie_writel_rc(pp, PCI_CLASS_REVISION, class_reg);
+
+	misc_reg &= ~DBI_RO_RW_EN;
+	dw_pcie_writel_rc(pp, PCIE_MISC_CONTROL_1_OFF, misc_reg);
+	baikal_pcie_lcru_writel(pcie->lcru, BAIKAL_LCRU_PCIE_GEN_CTL(pcie->bus_nr), lcru_reg);
+	// Set coherence
+	coh_reg =
+		(0x7 << 27) | /* AWCACHE */
+		(0x2 << 24) | /* AWDOMAIN */
+		(0xb << 19) | /* ARCACHE */
+		(0x2 << 16) | /* ARDOMAIN */
+		(0xF << 11) | /* AWCACHE mode */
+		(0x3 <<  8) | /* AWDOMAIN mode */
+		(0xF <<  3) | /* ARCACHE mode */
+		(0x3 <<  0) /* ARDOMAIN mode */
+		;
+//	dw_pcie_writel_rc(pp, PCIE_COHERENCE_CONTROL_3_OFF, coh_reg);
 
 	baikal_pcie_establish_link(pcie);
-
-	//baikal_pcie_enable_interrupts(rc);
 }
 
 static int baikal_pcie_msi_host_init(struct pcie_port *pp,

@@ -1192,6 +1192,9 @@ config I2C_XGENE_SLIMPRO
 	  to SLIMpro (On chip coprocessor) mailbox mechanism.
 	  If unsure, say N.
 
+config I2C_BAIKAL_SMBUS
+	tristate "Baikal-M SoC SMBus interface"
+
 config SCx200_ACB
 	tristate "Geode ACCESS.bus support"
 	depends on X86_32 && PCI

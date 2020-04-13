@@ -223,7 +223,7 @@ void baikal_vdu_crtc_helper_disable(struct drm_crtc *crtc)
 	drm_panel_disable(priv->connector.panel);
 
 	/* Disable and Power Down */
-	writel(0, priv->regs + CR1);
+	//writel(0, priv->regs + CR1);
 
 	drm_panel_unprepare(priv->connector.panel);
 

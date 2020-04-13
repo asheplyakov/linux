@@ -43,6 +43,7 @@
 		ssi0		= &spi0;
 		usb2		= &usb2;
 		usb3		= &usb3;
+		mmc0		= &mmc0;
 		ethernet1	= &gmac0;
 		ethernet2	= &gmac1;
 		ethernet3       = &xgmac0;
@@ -256,7 +257,7 @@
 	pcie0: pcie@2200000 {
 		compatible = "baikal,pcie-m", "snps,dw-pcie";
 		reg = <0x0 0x02200000 0x0 0x1000>,	/* RC config space and Port Logic Registers */
-			 <0x0 0x40100000 0x00 0x1000>;	/* PCI config space */
+			<0x0 0x40100000 0x00 0x100000>;	/* PCI config space */
 		reg-names = "dbi", "config";
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>; /* AERR */
 		baikal,pcie-lcru = <&pcie_lcru 0>;
@@ -265,16 +266,14 @@
 		device_type = "pci";
 		/*dma-coherent;*/
 		ranges =
-			 <0x81000000 0x00 0x40101000 0x00 0x40101000 0x00 0x01000000>,	/* 16MB I/O */
-			 <0x82000000 0x00 0x41101000 0x00 0x41101000 0x00 0x0EEFF000>,	/* 32b non-prefetchable memory */
-			 <0x83000000 0x04 0x00000000 0x04 0x00000000 0x01 0x00000000>,	/* 64b non-prefetchable memory */
-			 <0x83000000 0x40 0x00000000 0x40 0x00000000 0x10 0x00000000>;	/* 64b non-prefetchable memory */
+			 <0x81000000 0x00 0x00000000 0x00 0x40000000 0x00 0x00100000>,	/* 1MB I/O */
+			 <0x82000000 0x00 0x40000000 0x04 0x00000000 0x00 0x40000000>;	/* 32b non-prefetchable memory */
 		//interrupts = <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>;
 		#interrupt-cells = <1>;
 		msi-parent = <&its>;
 		msi-map = <0 &its 0x0000 0x10000>;
 		num-lanes = <4>;
-		num-viewport = <3>;
+		num-viewport = <4>;
 		bus-range = <0x00 0xff>;
 		pci_debug = <1>;
 		status = "disabled";
@@ -284,7 +283,7 @@
 	pcie1: pcie@2210000 {
 		compatible = "baikal,pcie-m", "snps,dw-pcie";
 		reg = <0x0 0x02210000 0x0 0x1000>, /* PCI config space and Port Logic Registers*/
-			 <0x0 0x50000000 0x00 0x1000>;	/* PCI config space */
+			 <0x0 0x50000000 0x00 0x100000>;	/* PCI config space */
 		reg-names = "dbi", "config";
 		interrupts = <GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>; /* AERR */
 		baikal,pcie-lcru = <&pcie_lcru 1>;
@@ -293,16 +292,14 @@
 		device_type = "pci";
 		/*dma-coherent;*/
 		ranges =
-			 <0x81000000 0x00 0x50001000 0x00 0x50001000 0x00 0x01000000>,	/* 16MB I/O */
-			 <0x82000000 0x00 0x50101000 0x00 0x50101000 0x00 0x0FEFF000>,  /* 32b non-prefetchable memory */
-			 <0x83000000 0x05 0x00000000 0x05 0x00000000 0x01 0x00000000>,	/* 64b non-prefetchable memory */
-			 <0x83000000 0x50 0x00000000 0x50 0x00000000 0x10 0x00000000>;	/* 64b non-prefetchable memory */
+			 <0x81000000 0x00 0x00000000 0x00 0x50000000 0x00 0x00100000>,	/* 1MB I/O */
+			 <0x82000000 0x00 0x50000000 0x05 0x00000000 0x00 0x40000000>;	/* 32b non-prefetchable memory */
 		//interrupts = <GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH>;
 		#interrupt-cells = <1>;
 		msi-parent = <&its>;
 		msi-map = <0x0 &its 0x0000 0x10000>;
 		num-lanes = <4>;
-		num-viewport = <3>;
+		num-viewport = <4>;
 		bus-range = <0x00 0xff>;
 		status = "disabled";
 	};
@@ -311,7 +308,7 @@
 	pcie2: pcie@2220000 {
 		compatible = "baikal,pcie-m", "snps,dw-pcie";
 		reg = <0x0 0x02220000 0x0 0x1000>, /* PCI config space and Port Logic Registers */
-			 <0x0 0x60000000 0x00 0x1000>;	/* PCI config space */
+			 <0x0 0x60000000 0x00 0x100000>;	/* PCI config space */
 		reg-names = "dbi", "config";
 		interrupts = <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>; /* AERR */
 		baikal,pcie-lcru = <&pcie_lcru 2>;
@@ -320,16 +317,14 @@
 		device_type = "pci";
 		/*dma-coherent;*/
 		ranges =
-			 <0x81000000 0x00 0x60001000 0x00 0x60001000 0x00 0x01000000>,	/* 16MB I/O */
-			 <0x82000000 0x00 0x60101000 0x00 0x60101000 0x00 0x0FEFF000>,  /* 32b non-prefetchable memory */
-			 <0x83000000 0x06 0x00000000 0x06 0x00000000 0x02 0x00000000>,	/* 64b non-prefetchable memory */
-			 <0x83000000 0x60 0x00000000 0x60 0x00000000 0x20 0x00000000>;	/* 64b non-prefetchable memory */
+			 <0x81000000 0x00 0x00000000 0x00 0x60100000 0x00 0x00100000>,	/* I/O */
+			 <0x82000000 0x00 0x80000000 0x06 0x00000000 0x00 0x80000000>;	/* 32b non-prefetchable memory */
 		//interrupts = <GIC_SPI 381 IRQ_TYPE_LEVEL_HIGH>;
 		#interrupt-cells = <1>;
 		msi-parent = <&its>;
 		msi-map = <0 &its 0x0000 0x10000>;
 		num-lanes = <8>;
-		num-viewport = <3>;
+		num-viewport = <4>;
 		bus-range = <0x00 0xff>;
 		status = "disabled";
 	};
@@ -499,7 +494,7 @@
 
 	/* AVLSP: SMBus1 (20270000, 10000, SPI_142_?) */
 	smbus0: smbus0@20270000 {
-		compatible = "bk,smbus";
+		compatible = "be,smbus";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x0 0x20270000 0x0 0x10000>;
@@ -514,7 +509,7 @@
 
 	/* AVLSP: SMBus2 (20280000, 10000, SPI_143_?) */
 	smbus1: smbus1@20280000 {
-		compatible = "bk,smbus";
+		compatible = "be,smbus";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x0 0x20280000 0x0 0x10000>;
@@ -620,19 +615,19 @@
 	};
 
 	/* AVLSP: SD/eMMC (202E0000, 10000, SPI_83-84_H) */
-	mmc: mmc@0x202E0000 {
-		compatible = "snps,dw-mshc";
+	mmc0: mmc@0x202E0000 {
+		compatible = "snps,dwcmshc-sdhci";
 		reg = <0x0 0x202E0000 0x0 0x10000>;
-		interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
-			         <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
-		num-slots = <1>;
+		interrupt-parent = <&gic>;
+		interrupts =
+			<GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
 		bus-width = <4>;
-		fifo-depth = <16>;
-		card-detect-delay = <200>;
-
-		clocks = <&soc_tmp_clk>;
-		clock-names = "tmpclk";
+		clock-names = "bus", "core";
+		clocks = <&cmu0_avlsp 18>, <&cmu0_avlsp 19>;
 		status = "disabled";
+		max-clock = <100000000>;
+		min-clock = <100000>;
 	};
 
 	/* USB MM: USB-2 (2C400000, 100000, SPI_267-268_H, SPI_277_H) */

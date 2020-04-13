@@ -78,8 +78,12 @@ static int baikal_clk_enable(struct clk_hw *hw)
 		cmd = CMU_PLL_ENABLE;
 	}
 
-	pr_err("%s pclk->name %s pclk->cmu_id %x pclk->parent %x\n",
-	 __func__, pclk->name, pclk->cmu_id, pclk->parent);
+	pr_debug("[%s, %x:%d:%s] %s\n",
+		pclk->name,
+		pclk->parent,
+		pclk->cmu_id,
+		pclk->is_clk_ch?"ch":"pll",
+		"enable");
 
 	/* If clock valid */
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, 0,
@@ -100,8 +104,12 @@ static void baikal_clk_disable(struct clk_hw *hw)
 	else
 		cmd = CMU_PLL_DISABLE;
 
-	pr_err("%s pclk->name %s pclk->cmu_id %x pclk->parent %x\n",
-	 __func__, pclk->name, pclk->cmu_id, pclk->parent);
+	pr_debug("[%s, %x:%d:%s] %s\n",
+		pclk->name,
+		pclk->parent,
+		pclk->cmu_id,
+		pclk->is_clk_ch?"ch":"pll",
+		"disable");
 
 	/* If clock valid */
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, 0,
@@ -119,12 +127,17 @@ static int baikal_clk_is_enabled(struct clk_hw *hw)
 	else
 		cmd = CMU_PLL_IS_ENABLED;
 
-	pr_err("%s pclk->name %s pclk->cmu_id %x pclk->parent %x\n",
-	 __func__, pclk->name, pclk->cmu_id, pclk->parent);
-
 	/* If clock valid */
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, 0,
 	 pclk->parent, 0, 0, 0, &res);
+
+	pr_debug("[%s, %x:%d:%s] %s, %ld\n",
+		pclk->name,
+		pclk->parent,
+		pclk->cmu_id,
+		pclk->is_clk_ch?"ch":"pll",
+		"is enable",
+		res.a0);
 
 	return res.a0;
 }
@@ -145,12 +158,18 @@ static unsigned long baikal_clk_recalc_rate(struct clk_hw *hw,
 		parent= parent_rate;
 	}
 
-	pr_err("%s pclk->name %s pclk->cmu_id %x pclk->parent %x\n",
-	 __func__, pclk->name, pclk->cmu_id, pclk->parent);
-
 	/* If clock valid */
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, 0,
 	parent, 0, 0, 0, &res);
+
+	pr_debug("[%s, %x:%d:%s] %s, %ld\n",
+		pclk->name,
+		parent,
+		pclk->cmu_id,
+		pclk->is_clk_ch?"ch":"pll",
+		"get rate",
+		res.a0);
+
 	/* Return actual freq */
 	return res.a0;
 
@@ -168,8 +187,13 @@ static int baikal_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	else
 		cmd = CMU_PLL_SET_RATE;
 
-	pr_err("%s clock set rate %ld\n", pclk->name,
-			rate);
+	pr_debug("[%s, %x:%d:%s] %s, %ld\n",
+		pclk->name,
+		pclk->parent,
+		pclk->cmu_id,
+		pclk->is_clk_ch?"ch":"pll",
+		"set rate",
+		rate);
 
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, rate,
 			pclk->parent, 0, 0, 0, &res);
@@ -193,12 +217,19 @@ static long baikal_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 		parent = *prate;
 	}
 
-	pr_err("%s pclk->name %s pclk->cmu_id %x pclk->parent %x\n",
-	 __func__, pclk->name, pclk->cmu_id, pclk->parent);
 
 	/* If clock valid */
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, rate,
 			parent, 0, 0, 0, &res);
+
+	pr_debug("[%s, %x:%d:%s] %s, %ld\n",
+		pclk->name,
+		pclk->parent,
+		pclk->cmu_id,
+		pclk->is_clk_ch?"ch":"pll",
+		"round rate",
+		res.a0);
+
 	/* Return actual freq */
 	return res.a0;
 }
@@ -328,7 +359,7 @@ static int  baikal_clk_probe(struct platform_device *pdev)
 			cmu_ch[index]->hw.init = &init_ch[i];
 			clk_ch->clks[index] = clk_register(NULL, &cmu_ch[index]->hw);
 
-			if (IS_ERR(clk_ch)) {
+			if (IS_ERR(clk_ch->clks[index])) {
 				/* Error */
 				pr_err("%s: could not register clk %s\n", __func__, clk_ch_name);
 			}
