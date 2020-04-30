@@ -32,7 +32,7 @@
 #include "baikal_vdu_regs.h"
 
 static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
-					    struct drm_plane_state *state)
+						 struct drm_plane_state *state)
 {
 	struct drm_device *dev = plane->dev;
 	struct baikal_vdu_private *priv = dev->dev_private;
@@ -82,7 +82,7 @@ static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 }
 
 static void baikal_vdu_primary_plane_atomic_update(struct drm_plane *plane,
-					      struct drm_plane_state *old_state)
+						   struct drm_plane_state *old_state)
 {
 	struct drm_device *dev = plane->dev;
 	struct baikal_vdu_private *priv = dev->dev_private;
