@@ -35,6 +35,11 @@ config DRM_DUMB_VGA_DAC
 	  Support for non-programmable RGB to VGA DAC bridges, such as ADI
 	  ADV7123, TI THS8134 and THS8135 or passive resistor ladder DACs.
 
+config DRM_BAIKAL_HDMI
+	tristate "Baikal-M HDMI transmitter"
+	help
+	  Choose this if you want to use HDMI on Baikal-M.
+
 config DRM_LVDS_CODEC
 	tristate "Transparent LVDS encoders and decoders support"
 	depends on OF

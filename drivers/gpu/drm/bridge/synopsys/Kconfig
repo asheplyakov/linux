@@ -7,7 +7,7 @@ config DRM_DW_HDMI
 
 config DRM_DW_HDMI_AHB_AUDIO
 	tristate "Synopsys Designware AHB Audio interface"
-	depends on DRM_DW_HDMI && SND
+	depends on (DRM_BAIKAL_HDMI || DRM_DW_HDMI) && SND
 	select SND_PCM
 	select SND_PCM_ELD
 	select SND_PCM_IEC958
