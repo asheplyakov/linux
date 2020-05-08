@@ -283,6 +283,19 @@ config AX88796B_PHY
 	  Currently supports the Asix Electronics PHY found in the X-Surf 100
 	  AX88796B package.
 
+config BAIKAL_MDIO
+        tristate "Driver for the Baikal Electronics GPIO MDIO bus"
+        depends on OF && GPIOLIB && MDIO_BITBANG
+        ---help---
+          Support for Baikal Electronics GPIO MDIO bus 
+
+config 88X2222_PHY
+        tristate "Drivers for Marvell 88X2222 Tanceiver"
+        ---help---
+          Support for Marvell Integrated Dual-port
+          Multi-speed Ethernet Transceivers.
+          Currently supports 88x2222
+
 config BCM63XX_PHY
 	tristate "Broadcom 63xx SOCs internal PHY"
 	depends on BCM63XX || COMPILE_TEST
