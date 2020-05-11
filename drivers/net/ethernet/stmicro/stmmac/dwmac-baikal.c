@@ -13,6 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -20,10 +21,40 @@
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
+#include "common.h"
+#include "dwmac_dma.h"
 
 struct baikal_dwmac {
 	struct device	*dev;
 	struct clk	*tx2_clk;
+};
+
+static int baikal_dwmac_dma_reset(void __iomem *ioaddr)
+{
+	int err;
+	u32 value = readl(ioaddr + DMA_BUS_MODE);
+
+	/* DMA SW reset */
+	value |= DMA_BUS_MODE_SFT_RESET;
+	writel(value, ioaddr + DMA_BUS_MODE);
+
+	udelay(10);
+	value = readl(ioaddr + MAC_GPIO);
+	value |= MAC_GPIO_GPO0;
+	writel(value, ioaddr + MAC_GPIO);
+	pr_info("PHY re-inited for Baikal DWMAC\n");
+
+	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
+				 !(value & DMA_BUS_MODE_SFT_RESET),
+				 10000, 1000000);
+	if (err)
+		return -EBUSY;
+
+	return 0;
+}
+
+static const struct stmmac_dma_ops baikal_dwmac_dma_ops = {
+	.reset = baikal_dwmac_dma_reset,
 };
 
 static void baikal_dwmac_fix_mac_speed(void *priv, unsigned int speed)
