@@ -496,6 +496,7 @@ int panfrost_job_init(struct panfrost_device *pfdev)
 {
 	struct panfrost_job_slot *js;
 	int ret, j, irq;
+	bool uppercase = false;
 
 	pfdev->js = js = devm_kzalloc(pfdev->dev, sizeof(*js), GFP_KERNEL);
 	if (!js)
@@ -504,11 +505,15 @@ int panfrost_job_init(struct panfrost_device *pfdev)
 	spin_lock_init(&js->job_lock);
 
 	irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "job");
+	if (irq <= 0) {
+		irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "JOB");
+		uppercase = true;
+	}
 	if (irq <= 0)
 		return -ENODEV;
 
 	ret = devm_request_irq(pfdev->dev, irq, panfrost_job_irq_handler,
-			       IRQF_SHARED, "job", pfdev);
+			       IRQF_SHARED, uppercase ? "JOB" : "job", pfdev);
 	if (ret) {
 		dev_err(pfdev->dev, "failed to request job irq");
 		return ret;

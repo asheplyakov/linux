@@ -665,6 +665,7 @@ static const struct of_device_id dt_match[] = {
 	{ .compatible = "arm,mali-t830" },
 	{ .compatible = "arm,mali-t860" },
 	{ .compatible = "arm,mali-t880" },
+	{ .compatible = "arm,mali-midgard" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, dt_match);

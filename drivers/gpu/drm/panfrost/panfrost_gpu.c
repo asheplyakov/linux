@@ -336,6 +336,7 @@ void panfrost_gpu_power_off(struct panfrost_device *pfdev)
 int panfrost_gpu_init(struct panfrost_device *pfdev)
 {
 	int err, irq;
+	bool uppercase = false;
 
 	err = panfrost_gpu_soft_reset(pfdev);
 	if (err)
@@ -347,11 +348,16 @@ int panfrost_gpu_init(struct panfrost_device *pfdev)
 		DMA_BIT_MASK(FIELD_GET(0xff00, pfdev->features.mmu_features)));
 
 	irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "gpu");
+	if (irq <= 0) {
+		irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "GPU");
+		uppercase = true;
+	}
+
 	if (irq <= 0)
 		return -ENODEV;
 
 	err = devm_request_irq(pfdev->dev, irq, panfrost_gpu_irq_handler,
-			       IRQF_SHARED, "gpu", pfdev);
+			       IRQF_SHARED, uppercase ? "GPU": "gpu", pfdev);
 	if (err) {
 		dev_err(pfdev->dev, "failed to request gpu irq");
 		return err;

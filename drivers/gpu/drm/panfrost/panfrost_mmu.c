@@ -635,14 +635,19 @@ static irqreturn_t panfrost_mmu_irq_handler_thread(int irq, void *data)
 int panfrost_mmu_init(struct panfrost_device *pfdev)
 {
 	int err, irq;
+	bool uppercase = false;
 
 	irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "mmu");
+	if (irq <= 0) {
+		irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "MMU");
+		uppercase = true;
+	}
 	if (irq <= 0)
 		return -ENODEV;
 
 	err = devm_request_threaded_irq(pfdev->dev, irq, panfrost_mmu_irq_handler,
 					panfrost_mmu_irq_handler_thread,
-					IRQF_SHARED, "mmu", pfdev);
+					IRQF_SHARED, uppercase ? "MMU" : "mmu", pfdev);
 
 	if (err) {
 		dev_err(pfdev->dev, "failed to request mmu irq");
