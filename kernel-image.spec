@@ -1,7 +1,7 @@
 %def_disable check
 
 Name: kernel-image-mitx-xpa
-Release: alt3
+Release: alt4
 
 
 %define kernel_base_version	4.4
@@ -428,9 +428,14 @@ KbuildFiles="
 	scripts/gcc-version.sh
 	scripts/gcc-goto.sh
 	scripts/recordmcount.pl
+	scripts/recordmcount.h
+	scripts/recordmcount.c
+	scripts/recordmcount
 	scripts/module-common.lds
 	scripts/depmod.sh
 	scripts/gcc-plugins/*.so
+	scripts/ld-version.sh
+	tools/objtool/objtool
 
 
 	.config
@@ -577,6 +582,9 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Wed May 13 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.215-alt4
+- kernel-modules: package more scripts/
+
 * Wed Mar 18 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.215-alt3
 - Fix BMC initialization on older Tavolga boards.
 
