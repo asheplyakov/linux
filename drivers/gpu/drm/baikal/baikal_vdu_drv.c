@@ -26,6 +26,7 @@
 #include <linux/dma-buf.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/fb.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
@@ -33,6 +34,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_fb_helper.h>
 
 #include "baikal_vdu_drm.h"
 #include "baikal_vdu_regs.h"
@@ -55,6 +57,27 @@ static struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_check = drm_atomic_helper_check,
 	.atomic_commit = drm_atomic_helper_commit,
 };
+
+static int baikal_vdu_remove_efifb(struct drm_device *dev)
+{
+	int err;
+	struct apertures_struct *a;
+	a = alloc_apertures(1);
+	if (!a) {
+		err = -ENOMEM;
+		dev_warn(dev->dev, "failed to allocate apertures\n");
+		goto out;
+	}
+	a->ranges[0].base = 0;
+	a->ranges[0].size = ~0;
+	err = drm_fb_helper_remove_conflicting_framebuffers(a, "baikal-vdudrmfb", false);
+	if (err) {
+		dev_warn(dev->dev, "failed to remove firmware framebuffer\n");
+	}
+	kfree(a);
+out:
+	return err;
+}
 
 static int vdu_modeset_init(struct drm_device *dev)
 {
@@ -133,6 +156,8 @@ static int vdu_modeset_init(struct drm_device *dev)
 	}
 
 	priv->mode_fixup = mode_fixup;
+
+	baikal_vdu_remove_efifb(dev);
 
 	ret = drm_vblank_init(dev, 1);
 	if (ret != 0) {
