@@ -4,7 +4,7 @@
 
 Name: kernel-image-bmitx-def
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
-Release: alt1
+Release: alt2
 
 %define kernel_extra_version_numeric 1.0.0
 
@@ -251,6 +251,10 @@ rm -f /boot/dtb
 ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
 
 %changelog
+* Sat May 23 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.216-alt2
+- Fixed monitor wakeup from the idle state and switching between virtual
+  consoles. Mali drivers still breaks power management.
+
 * Mon Apr 13 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.216-alt1
 - Updates from Baikal SDK-M-4.2
   WARNING: the kernel depends on firmware from the same version of SDK.
