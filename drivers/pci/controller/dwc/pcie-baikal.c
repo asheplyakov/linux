@@ -628,13 +628,13 @@ err_phy:
 static int baikal_pcie_suspend(struct device *dev)
 {
 	struct baikal_pcie *rc = dev_get_drvdata(dev);
-	struct pcie_port *pp = &rc->pp;
+	struct dw_pcie *pci = rc->pci;
 	u32 val;
 
 	/* clear MSE */
-	val = dw_pcie_readl_rc(pp, PCI_COMMAND);
+	val = dw_pcie_readl_dbi(pci, PCI_COMMAND);
 	val &= ~PCI_COMMAND_MEMORY;
-	dw_pcie_writel_rc(pp, PCI_COMMAND, val);
+	dw_pcie_writel_dbi(pci, PCI_COMMAND, val);
 
 	return 0;
 }
@@ -642,13 +642,13 @@ static int baikal_pcie_suspend(struct device *dev)
 static int baikal_pcie_resume(struct device *dev)
 {
 	struct baikal_pcie *rc = dev_get_drvdata(dev);
-	struct pcie_port *pp = &rc->pp;
+	struct dw_pcie *pci = rc->pci;
 	u32 val;
 
 	/* set MSE */
-	val = dw_pcie_readl_rc(pp, PCI_COMMAND);
+	val = dw_pcie_readl_dbi(pci, PCI_COMMAND);
 	val |= PCI_COMMAND_MEMORY;
-	dw_pcie_writel_rc(pp, PCI_COMMAND, val);
+	dw_pcie_writel_dbi(pci, PCI_COMMAND, val);
 
 	return 0;
 }
