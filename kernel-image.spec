@@ -1,11 +1,11 @@
 %def_disable check
 
 Name: kernel-image-mitx-xpa
-Release: alt4
+Release: alt1
 
 
 %define kernel_base_version	4.4
-%define kernel_sublevel .215
+%define kernel_sublevel .226
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 
@@ -582,6 +582,9 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Tue Jun 09 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.226-alt1
+- Merged with linux-stable v4.4.226
+
 * Wed May 13 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.215-alt4
 - kernel-modules: package more scripts/
 
