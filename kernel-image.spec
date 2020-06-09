@@ -1,7 +1,7 @@
 %def_disable check
 
 Name: kernel-image-mitx-xpa
-Release: alt1
+Release: alt2
 
 
 %define kernel_base_version	4.4
@@ -582,6 +582,9 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
+* Tue Jun 09 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.226-alt2
+- Enable IMA and EVM
+
 * Tue Jun 09 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.226-alt1
 - Merged with linux-stable v4.4.226
 
