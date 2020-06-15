@@ -308,6 +308,9 @@ static int dw_spi_transfer_one(struct spi_master *master,
 	dws->chip_select = spi->chip_select;
 	spin_unlock_irqrestore(&dws->buf_lock, flags);
 
+	/* Ensure dw->rx and dw->rx_end are visible */
+	smp_mb();
+
 	spi_enable_chip(dws, 0);
 
 	/* Handle per transfer options for bpw and speed */
