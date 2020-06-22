@@ -1,0 +1,46 @@
+---
+
+- hosts: arm64
+  tasks:
+    - name: figure out kernel version
+      command: >
+        cpp -E -x c -I. -
+      args:
+        stdin: |
+          #include "include/generated/utsrelease.h"
+          UTS_RELEASE
+      register: kernel_version_out
+      delegate_to: localhost
+    - set_fact:
+        kernel_version: "{{ kernel_version_out.stdout_lines[-1]|regex_replace('\"', '') }}"
+    - debug: var=kernel_version
+    - set_fact:
+        kernel_tarball: "linux-{{ kernel_version }}-arm64.tgz"
+    - debug: var=kernel_tarball
+    - name: make kernel tarball
+      command: >
+        fakeroot
+        tar czvf {{ kernel_tarball }} -C _inst
+        boot/vmlinuz-{{ kernel_version }}
+        boot/config-{{ kernel_version }}
+        boot/System.map-{{ kernel_version }}
+        boot/dtbs/{{ kernel_version }}
+        lib/modules/{{ kernel_version }}
+      delegate_to: localhost
+    - name: unpack kernel tarball
+      unarchive:
+        src: "{{ kernel_tarball }}"
+        dest: "/"
+      become: true
+    - name: run depmod
+      command: >
+        depmod -a "{{ kernel_version }}"
+      become: true
+    - name: register kernel with installkernel
+      command: >
+        /sbin/installkernel --nodefault --noflavour "{{ kernel_version }}"
+      become: true
+    - name: update bootloader configuration
+      command: >
+        /usr/sbin/update-grub
+      become: true
