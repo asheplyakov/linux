@@ -23,6 +23,7 @@
 #include <drm/drmP.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_simple_kms_helper.h>
+#include <linux/workqueue.h>
 
 struct clk;
 struct drm_device;
@@ -57,8 +58,13 @@ struct baikal_vdu_private {
 	void *regs;
 	struct clk *clk;
 	spinlock_t lock;
-	u32 counters[15];
+	u32 counters[20];
 	int mode_fixup;
+
+	u32 fb_addr;
+	u32 fb_end;
+
+	struct delayed_work update_work;
 };
 
 #define to_baikal_vdu_drm_connector(x) \
@@ -95,5 +101,8 @@ int drm_of_find_panel_or_bridge(struct device_node *remote,
 
 int get_panel_or_bridge(struct device *dev,
 		                struct drm_panel **panel, struct drm_bridge **bridge);
+
+/* Worker functions */
+void baikal_vdu_update_work(struct work_struct *work);
 
 #endif /* __BAIKAL_VDU_DRM_H__ */

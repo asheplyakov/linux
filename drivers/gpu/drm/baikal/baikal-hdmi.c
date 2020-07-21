@@ -30,6 +30,7 @@
 #define BAIKAL_HDMI_PHY_CKSYMTXCTRL		0x09	/* Tx symbols control and slope boost */
 
 int fixed_clock = 0;
+int max_clock = 0;
 
 struct baikal_hdmi_phy_params {
 	unsigned long mpixelclock;
@@ -93,6 +94,8 @@ static enum drm_mode_status baikal_hdmi_mode_valid(struct drm_connector *con,
 		return MODE_CLOCK_HIGH;
     if (fixed_clock && mode->clock != fixed_clock)
         return MODE_BAD;
+    if (max_clock && mode->clock > max_clock)
+        return MODE_BAD;
 
     return MODE_OK;
 }
@@ -129,6 +132,7 @@ static struct platform_driver baikal_dw_hdmi_platform_driver = {
 };
 
 module_param(fixed_clock, int, 0644);
+module_param(max_clock, int, 0644);
 
 module_platform_driver(baikal_dw_hdmi_platform_driver);
 

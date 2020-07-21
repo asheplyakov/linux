@@ -187,7 +187,7 @@ static int baikal_t1_report_link_performance(struct pci_dev *pdev)
 {
 	int reg = READ_PCIE_REG(PCIE_LINK_CONTROL_LINK_STATUS_REG);
 	int speed = (reg & PCIE_CAP_LINK_SPEED_MASK) >> PCIE_CAP_LINK_SPEED_SHIFT;
-	int width = (reg & PCIE_STA_LINK_WIDTH_MASK) >> PCIE_STA_LINK_WIDTH_SHIFT; 
+	int width = (reg & PCIE_STA_LINK_WIDTH_MASK) >> PCIE_STA_LINK_WIDTH_SHIFT;
 	dev_info(&pdev->dev, "Link Status is     GEN%d, x%d\n", speed, width);
 	return speed;
 }
@@ -258,7 +258,7 @@ static int dw_report_link_performance(struct pcie_port *pp)
 {
 	int reg = dw_pcie_readl_rc(pp,PCIE_LINK_CONTROL_LINK_STATUS_REG);
 	int speed = (reg & PCIE_CAP_LINK_SPEED_MASK) >> PCIE_CAP_LINK_SPEED_SHIFT;
-	int width = (reg & PCIE_STA_LINK_WIDTH_MASK) >> PCIE_STA_LINK_WIDTH_SHIFT; 
+	int width = (reg & PCIE_STA_LINK_WIDTH_MASK) >> PCIE_STA_LINK_WIDTH_SHIFT;
 	dev_info(pp->dev, "Link Status is     GEN%d, x%d\n", speed, width);
 	return speed;
 }
@@ -1126,7 +1126,7 @@ static int __init baikal_pcie_probe(struct platform_device *pdev)
 	if (be_debug) {
 		if(be_debug == 1) {
 			while(be_debug) {}
-		} else if(be_debug == 2) 
+		} else if(be_debug == 2)
 			return -EBUSY;
 	}
 
@@ -1161,10 +1161,6 @@ static int __init baikal_pcie_probe(struct platform_device *pdev)
 		goto err_pm_disable;
 	}
 
-
-	baikal_pcie_cease_link(pcie);
-
-	/* LINK DISABLED */
 	reset_gpio = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0, &flags);
 	if (reset_gpio != -EPROBE_DEFER && gpio_is_valid(reset_gpio)) {
 		unsigned long gpio_flags;

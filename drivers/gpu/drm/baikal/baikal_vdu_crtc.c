@@ -156,7 +156,7 @@ static void baikal_vdu_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 			priv->regs + HTR);
 
 	if (mode->hdisplay > 4080 || ppl * 16 != mode->hdisplay)
-		writel((HPPLOR_HPPLO(ppl) & HPPLOR_HPPLO_MASK) | HPPLOR_HPOE,
+		writel((HPPLOR_HPPLO(mode->hdisplay) & HPPLOR_HPPLO_MASK) | HPPLOR_HPOE,
 				priv->regs + HPPLOR);
 
 	writel((VTR1_VSW(vsw) & VTR1_VSW_MASK) |

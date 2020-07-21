@@ -271,14 +271,16 @@ static int  baikal_clk_probe(struct platform_device *pdev)
 	        return -ENOMEM;
 	}
 
+	/* property */
 	of_property_read_string(node, "clock-output-names", &cmu->name);
-	parent_name = of_clk_get_parent_name(node, 0);
-	init.parent_names = &parent_name;
-	init.num_parents = 1;
 	of_property_read_u32(node, "clock-frequency", &cmu->parent);
 	of_property_read_u32(node, "cmu-id", &cmu->cmu_id);
 
+	parent_name = of_clk_get_parent_name(node, 0);
+
 	/* Setup clock init structure */
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
 	init.name = cmu->name;
 	init.ops = &be_clk_pll_ops;
 	init.flags = CLK_IGNORE_UNUSED;
@@ -287,7 +289,7 @@ static int  baikal_clk_probe(struct platform_device *pdev)
 	cmu->is_clk_ch = 0;
 
 	/* Register the clock */
-	pr_debug("Add %s clock\n", cmu->name);
+	pr_debug("Add %s (Parent %s)\n", cmu->name, parent_name? parent_name:"null");
 	clk = clk_register(NULL, &cmu->hw);
 
 	if (IS_ERR(clk)) {
@@ -314,7 +316,6 @@ static int  baikal_clk_probe(struct platform_device *pdev)
  		if (!clk_ch) {
  		        /* Error */
  		        pr_err("%s: could not allocate CMU clk channel\n", __func__);
- 		        kfree(clk_ch);
  		        return -ENOMEM;
  		}
 		/* Get the last index to find out max number of children*/
@@ -325,7 +326,6 @@ static int  baikal_clk_probe(struct platform_device *pdev)
 		clk_ch->clk_num = index + 1;
 		cmu_ch = kcalloc((index + 1 ), sizeof(struct baikal_clk_cmu *), GFP_KERNEL);
 		if (!cmu_ch) {
-			kfree(cmu_ch);
 			kfree(clk_ch);
 			return -ENOMEM;
 		}
@@ -333,7 +333,6 @@ static int  baikal_clk_probe(struct platform_device *pdev)
 		if (!init_ch){
 		        /* Error */
 		        pr_err("%s: could not allocate CMU init structure \n", __func__);
-		        kfree(init_ch);
 		        kfree(cmu_ch);
 		        kfree(clk_ch);
 		        return -ENOMEM;
@@ -342,21 +341,21 @@ static int  baikal_clk_probe(struct platform_device *pdev)
 		of_property_for_each_u32(node, "clock-indices", prop, p, index) {
 			of_property_read_string_index(node, "clock-names",
 						      i, &clk_ch_name);
-			pr_err("%s index %x name <%s> i %x \n", __func__,index, clk_ch_name, i);
-			cmu_ch[index] = kmalloc(sizeof(struct baikal_clk_cmu), GFP_KERNEL);
+			pr_debug("%s, name <%s>, index %d, i %d\n", __func__, clk_ch_name, index, i);
 
-			cmu_ch[index]->name = clk_ch_name;
-			cmu_ch[index]->cmu_id = index;
-			cmu_ch[index]->parent = cmu->cmu_id;
-			cmu_ch[index]->is_clk_ch = 1;
 			init_ch[i].parent_names = &cmu->name;
 			init_ch[i].num_parents = 1;
-
 			init_ch[i].name = clk_ch_name;
 			init_ch[i].ops = &be_clk_pll_ops;
 			init_ch[i].flags = CLK_IGNORE_UNUSED;
 
+			cmu_ch[index] = kmalloc(sizeof(struct baikal_clk_cmu), GFP_KERNEL);
+			cmu_ch[index]->name = clk_ch_name;
+			cmu_ch[index]->cmu_id = index;
+			cmu_ch[index]->parent = cmu->cmu_id;
+			cmu_ch[index]->is_clk_ch = 1;
 			cmu_ch[index]->hw.init = &init_ch[i];
+
 			clk_ch->clks[index] = clk_register(NULL, &cmu_ch[index]->hw);
 
 			if (IS_ERR(clk_ch->clks[index])) {

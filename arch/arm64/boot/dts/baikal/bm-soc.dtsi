@@ -34,6 +34,7 @@
 		memory-controller1 = &ddr1;
 		memory-controller2 = &ddr2;
 		spi		= &spi0;
+		espi0		= &espi0;
 		i2c0		= &i2c0;
 		i2c1		= &i2c1;
 		gpio		= &gpio;
@@ -58,7 +59,7 @@
 		pvt2		= &pvt2;
 		pvt3		= &pvt3;
 		pvt_mali	= &pvt_mali;
-
+		vdec		= &vdec;
 	};
 
 	/*
@@ -283,7 +284,7 @@
 	pcie1: pcie@2210000 {
 		compatible = "baikal,pcie-m", "snps,dw-pcie";
 		reg = <0x0 0x02210000 0x0 0x1000>, /* PCI config space and Port Logic Registers*/
-			 <0x0 0x50000000 0x00 0x100000>;	/* PCI config space */
+			 <0x0 0x50100000 0x00 0x100000>;	/* PCI config space */
 		reg-names = "dbi", "config";
 		interrupts = <GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>; /* AERR */
 		baikal,pcie-lcru = <&pcie_lcru 1>;
@@ -293,7 +294,7 @@
 		/*dma-coherent;*/
 		ranges =
 			 <0x81000000 0x00 0x00000000 0x00 0x50000000 0x00 0x00100000>,	/* 1MB I/O */
-			 <0x82000000 0x00 0x50000000 0x05 0x00000000 0x00 0x40000000>;	/* 32b non-prefetchable memory */
+			 <0x82000000 0x00 0x40000000 0x05 0x00000000 0x00 0x40000000>;	/* 32b non-prefetchable memory */
 		//interrupts = <GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH>;
 		#interrupt-cells = <1>;
 		msi-parent = <&its>;
@@ -571,6 +572,27 @@
 	};
 
 	/* AVLSP: ESPI (202A0000, 10000, SPI_135_?) */
+	espi0: espi0@202A0000 {
+		compatible = "be,espi";
+		reg = <0x0 0x202A0000 0x0 0x10000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cmu0_avlsp 5>;
+		clock-names = "soc_espiclk";
+		status = "disabled";
+
+		/*
+		Block Configuration:
+		master/slave
+		32-bit APB slave
+		tx-fifo = rx-fifo = 256 byte
+		4 SPI IO channels
+		8 slave select IO channels
+		DMA - missing
+		M-flash controller - missing
+		*/
+	};
 
 	/* AVLSP: DMAC (202B0000, 10000, SPI_41-80_H) */
 	lsdma: dma@202B0000 {
@@ -626,8 +648,8 @@
 		clock-names = "bus", "core";
 		clocks = <&cmu0_avlsp 18>, <&cmu0_avlsp 19>;
 		status = "disabled";
-		max-clock = <100000000>;
-		min-clock = <100000>;
+		max-frequency = <10000000>;
+		disable-wp;
 	};
 
 	/* USB MM: USB-2 (2C400000, 100000, SPI_267-268_H, SPI_277_H) */
@@ -1000,6 +1022,13 @@
 				remote-endpoint = <&hdmi_tx_out>;
 			};
 		};
+	};
+
+	vdec: vdec {
+		compatible = "baikal,d5500-vxd";
+		reg = <0x0 0x24200000 0x0 0x10000>;
+		interrupts = <GIC_SPI 497 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
 	};
 
 };

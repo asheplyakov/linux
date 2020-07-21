@@ -13,17 +13,13 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/sizes.h>
-#include <linux/delay.h>
 
 #include "sdhci-pltfm.h"
 
 #define BOUNDARY_OK(addr, len) \
 	((addr | (SZ_128M - 1)) == ((addr + len - 1) | (SZ_128M - 1)))
 
-struct dwcmshc_priv {
-	u32 min_clock;
-	u32 max_clock;
-};
+#define MSHC_INPUT_DIVIDER 2  /* mshc_tx_x2 to mshc_tx divider */
 
 /*
  * If DMA addr spans 128MB boundary, we split the DMA transfer into two
@@ -32,12 +28,10 @@ struct dwcmshc_priv {
 static void dwcmshc_adma_write_desc(struct sdhci_host *host, void **desc,
 				    dma_addr_t addr, int len, unsigned int cmd)
 {
-
 	int tmplen, offset;
 
 	if (likely(!len || BOUNDARY_OK(addr, len))) {
 		sdhci_adma_write_desc(host, desc, addr, len, cmd);
-
 		return;
 	}
 
@@ -52,69 +46,16 @@ static void dwcmshc_adma_write_desc(struct sdhci_host *host, void **desc,
 
 static unsigned int dwcmshc_get_max_clock (struct sdhci_host *host)
 {
-	struct sdhci_pltfm_host *pltfm_host;
-	struct dwcmshc_priv *priv;
-
-	pltfm_host = sdhci_priv(host);
-	priv = sdhci_pltfm_priv(pltfm_host);
-	return priv->max_clock;
-}
-
-static unsigned int dwcmshc_get_min_clock (struct sdhci_host *host)
-{
-	struct sdhci_pltfm_host *pltfm_host;
-	struct dwcmshc_priv *priv;
-
-	pltfm_host = sdhci_priv(host);
-	priv = sdhci_pltfm_priv(pltfm_host);
-	return priv->min_clock;
-}
-
-static void dwcmshc_set_clock(struct sdhci_host *host, unsigned int clock)
-{
-	u16 clk;
-	unsigned long timeout;
-
-	/* clk = 0 */
-	host->mmc->actual_clock = 0;
-	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
-	if (clock == 0){
-		return;
-	}
-	
-	/* clk = clock */
-	struct sdhci_pltfm_host *pltfm_host;
-	pltfm_host = sdhci_priv(host);
-	clk_set_rate(pltfm_host->clk,clock);
-
-	clk = sdhci_calc_clk(host, clock, &host->mmc->actual_clock);
-	clk |= SDHCI_CLOCK_INT_EN;
-	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
-
-	/* Wait max 20 ms */
-	timeout = 20;
-	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL)) & SDHCI_CLOCK_INT_STABLE)) {
-		if (timeout == 0) {
-			pr_err("%s: Internal clock never stabilised.\n", mmc_hostname(host->mmc));
-			sdhci_dumpregs(host);
-			return;
-		}
-		timeout--;
-		spin_unlock_irq(&host->lock);
-		usleep_range(900, 1100);
-		spin_lock_irq(&host->lock);
-	}
-	clk |= SDHCI_CLOCK_CARD_EN;
-	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	return clk_get_rate(pltfm_host->clk) / MSHC_INPUT_DIVIDER;
 }
 
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
 	.reset			= sdhci_reset,
-	.set_clock		= dwcmshc_set_clock,
+	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
 	.set_uhs_signaling	= sdhci_set_uhs_signaling,
 	.get_max_clock		= dwcmshc_get_max_clock,
-	.get_min_clock		= dwcmshc_get_min_clock,
 	.adma_write_desc	= dwcmshc_adma_write_desc,
 };
 
@@ -123,20 +64,19 @@ static const struct sdhci_pltfm_data sdhci_dwcmshc_pdata = {
 
 	/* Deviations from spec. */
 	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN | SDHCI_QUIRK_BROKEN_ADMA,
-	// .quirks2 = ,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
 static int dwcmshc_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_host *host;
 	struct dwcmshc_priv *priv;
 	int err;
 	u32 extra;
+	u32 max;
 
-	host = sdhci_pltfm_init(pdev, &sdhci_dwcmshc_pdata,
-				sizeof(struct dwcmshc_priv));
+	host = sdhci_pltfm_init(pdev, &sdhci_dwcmshc_pdata, 0);
 	if (IS_ERR(host)){
 		return PTR_ERR(host);
 	}
@@ -158,6 +98,11 @@ static int dwcmshc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get 'core' clk: %d\n", err);
 		goto free_pltfm;
 	}
+
+	if (device_property_read_u32(&pdev->dev, "max-frequency", &max) < 0)
+		max = 10000000;
+	clk_set_rate(pltfm_host->clk, max * MSHC_INPUT_DIVIDER);
+
 	err = clk_prepare_enable(pltfm_host->clk);
 	if (err){
 		dev_err(&pdev->dev, "failed to prepare clk: %d\n", err);
@@ -172,20 +117,11 @@ static int dwcmshc_probe(struct platform_device *pdev)
 
 	sdhci_get_of_property(pdev);
 
-	if(!of_property_read_u32(np, "max-clock", &priv->max_clock))
-		priv->max_clock = 50*1000*1000;
-
-	if(!of_property_read_u32(np, "min-clock", &priv->min_clock))
-		priv->min_clock = 100*1000;
-
-
 	err = sdhci_add_host(host);
 	if (err){
 		dev_err(&pdev->dev, "failed to sdhci_add_host: %d\n", err);
 		goto err_clk;
 	}
-
-
 	return 0;
 
 err_clk:

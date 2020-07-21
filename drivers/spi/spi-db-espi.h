@@ -2,25 +2,25 @@
 #define SPI_DB_ESPI_H
 
 
-#define DRIVER_NAME	"be,espi"
 #define ESPI_FIFO_LEN	256
 #define ESPI_DUMMY_DATA	0xFF
 #define ESPI_FREQUENCY	25000000
 
 
 /* driver data */
-struct drv_data {
+struct espi_data {
 	struct spi_master	*master;
 
-	/* params */
-	void __iomem		*regs;
+	/* hardware */
 	int			irq;
-	uint32_t		fifo_len;
-	uint32_t		tx_almost_empty;
-	uint32_t		rx_almost_full;
+	void __iomem		*regs;
+	struct clk		*clk;
+	int			*cs_gpios;
+	int			cnt_gpios;
 
 	/* transfer */
-	uint32_t		len;
+	uint32_t		rxlen;
+	uint32_t		txlen;
 	uint8_t			*tx;
 	uint8_t			*rx;
 };
@@ -45,11 +45,11 @@ struct drv_data {
 #define ESPI_RBCR	0x58	/* espi response byte count */
 #define ESPI_CIR1	0xe0	/* id1 */
 #define ESPI_CIR2	0xe4	/* id2 */
-/* #define ESPI_DCR	0x40	/* dma control */
-/* #define ESPI_TDBAR	0x44	/* dma transmit base address */
-/* #define ESPI_TDCAR	0x48	/* dma transmit current address */
-/* #define ESPI_RDBAR	0x4c	/* dma receive base address */
-/* #define ESPI_RDCAR	0x50	/* dma receive current address */
+#define ESPI_DCR	0x40	/* dma control */
+#define ESPI_TDBAR	0x44	/* dma transmit base address */
+#define ESPI_TDCAR	0x48	/* dma transmit current address */
+#define ESPI_RDBAR	0x4c	/* dma receive base address */
+#define ESPI_RDCAR	0x50	/* dma receive current address */
 
 
 typedef union {
@@ -108,6 +108,7 @@ typedef union {
 #define  ESPI_TX_FAETR_DISABLE 0x0
 #define  ESPI_ISR_CLEAR        0xFF   /* clear by writing "1" */
 #define  ESPI_IMR_DISABLE      0x0
+#define  ESPI_IMR_ENABLE       0xFF
 
 /* isr, imr, ivr */
 typedef union {
@@ -140,13 +141,13 @@ typedef union {
 	uint32_t val;
 	struct {
 		//low
-		uint8_t  ese :1;	/* enable */
-		uint8_t  rms :1;	/* reset# direction */
-		uint8_t  raa :1;	/* reset# assertion active */
-		uint8_t  cre :1;	/* crc receive enable */
-		uint8_t  crf :1;	/* crc receive byte placed in fifo */
-		uint8_t  wsr :1;	/* wait state response */
-		uint8_t  sdl :2;	/* spi data lines (single, dual, quad) */
+		uint32_t  ese :1;	/* enable */
+		uint32_t  rms :1;	/* reset# direction */
+		uint32_t  raa :1;	/* reset# assertion active */
+		uint32_t  cre :1;	/* crc receive enable */
+		uint32_t  crf :1;	/* crc receive byte placed in fifo */
+		uint32_t  wsr :1;	/* wait state response */
+		uint32_t  sdl :2;	/* spi data lines (single, dual, quad) */
 		//hi
 	} bits;
 } espi_cr3_t;
@@ -156,16 +157,14 @@ typedef union {
 /* struct espi_cir2_t {} */
 
 
-/* ---------- */
-/* read\write */
-/* ---------- */
-static inline uint8_t dw_readl(struct drv_data *dws, uint8_t offset)
+static inline uint32_t espi_readl(struct espi_data *priv, uint32_t offset)
 {
-	return __raw_readl(dws->regs + offset);
+	return __raw_readl(priv->regs + offset);
 }
-static inline void dw_writel(struct drv_data *dws, uint8_t offset, uint8_t val)
+static inline void espi_writel(struct espi_data *priv, uint32_t offset, uint32_t val)
 {
-	__raw_writel(val, dws->regs + offset);
+	__raw_writel(val, priv->regs + offset);
 }
+
 
 #endif /* SPI_DB_ESPI_H */

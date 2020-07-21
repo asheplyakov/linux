@@ -30,400 +30,376 @@
 #include "spi-db-espi.h"
 
 
-/**
- * ----------------
- * spi_reset_master
- * ----------------
- * @param spi    [description]
- * @param enable [description]
- */
-static void spi_reset_master (struct spi_master *master)
-{
-	struct drv_data *dws = spi_master_get_devdata(master);
+static void espi_set_cs       (struct spi_device *spi, bool enable);
+static int  espi_setup        (struct spi_device *spi);
 
-	/* reset (clk,irq,fifo) */
-	/* NORESET -> RESET */
+static void espi_writer       (struct espi_data *priv);
+static void espi_reader       (struct espi_data *priv);
+static void espi_reset        (struct espi_data *priv);
+static void espi_enable_tx    (struct espi_data *priv);
+static void espi_enable_rx    (struct espi_data *priv);
+
+
+/* ---------------- */
+/* LOW-LEVEL        */
+/* ---------------- */
+static void espi_reset (struct espi_data *priv)
+{
+	/* NORESET */
 	espi_cr1_t cr1;
-	cr1.val = 0;
 	cr1.bits.scr = ESPI_CR1_SCR_NORESET;
-	dw_writel(dws, ESPI_CR1, cr1.val);
+	espi_writel (priv, ESPI_CR1, cr1.val);
+
+	/* RESET */
 	cr1.bits.scr = ESPI_CR1_SCR_RESET;
-	dw_writel(dws, ESPI_CR1, cr1.val);
-
-	/* clear registers */
-	dw_writel(dws, ESPI_CR2, 0);
-	dw_writel(dws, ESPI_TX_FAETR, ESPI_TX_FAETR_DISABLE);
-	dw_writel(dws, ESPI_RX_FAFTR, ESPI_RX_FAFTR_DISABLE);
-	dw_writel(dws, ESPI_ISR, ESPI_ISR_CLEAR);
-	dw_writel(dws, ESPI_IMR, ESPI_IMR_DISABLE);
-	dw_writel(dws, ESPI_CR3, 0);    /* disable espi functions */
-	dw_writel(dws, ESPI_RBCR, 0xFF);
+	espi_writel (priv, ESPI_CR1, cr1.val);
 }
 
-/**
- * -----------
- * spi_set_cs
- * -----------
- * @param spi    [description]
- * @param enable [description]
- */
-static void spi_set_cs (struct spi_device *spi, bool enable)
+static void espi_enable_rx (struct espi_data *priv)
 {
-	struct spi_master *master;
-	struct drv_data *dws;
 	espi_cr2_t cr2;
-
-	master = spi->master;
-	dws = spi_master_get_devdata(master);
-
-	/* check */
-	if (spi->chip_select > master->num_chipselect){
-		dev_err(&master->dev, "chip-select too big. (cs=%d, max=%d)\n",
-			spi->chip_select, master->num_chipselect-1);
-		return;
-	}
-
-	/* set */
-	cr2.val = dw_readl(dws, ESPI_CR2);
-	cr2.bits.sso = spi->chip_select;
-	dw_writel(dws, ESPI_CR2, cr2.val);
+	cr2.val = espi_readl(priv, ESPI_CR2);
+	cr2.bits.srd = ESPI_CR2_SRD_RX_ENABLE;
+	espi_writel(priv, ESPI_CR2, cr2.val);
 }
 
-/**
- * -----------
- * spi_writer
- * -----------
- * @param dws [description]
- */
-static void spi_writer (struct drv_data *dws)
+static void espi_enable_tx (struct espi_data *priv)
+{
+	espi_cr2_t cr2;
+	int cnt = espi_readl(priv, ESPI_TX_FBCAR);
+	cr2.val = espi_readl(priv, ESPI_CR2);
+
+	if (cnt && cr2.bits.mte != ESPI_CR2_MTE_TX_ENABLE){
+		cr2.bits.mte = ESPI_CR2_MTE_TX_ENABLE;
+		espi_writel(priv, ESPI_CR2, cr2.val);
+	}
+}
+
+static void espi_set_cs (struct spi_device *spi, bool enable)
+{
+	struct espi_data *priv;
+	espi_cr2_t cr2;
+	int gpio;
+
+	priv = spi_master_get_devdata(spi->master);
+
+	/* cs-host */
+	cr2.val = espi_readl (priv, ESPI_CR2);
+	cr2.bits.sso = spi->chip_select;
+	espi_writel (priv, ESPI_CR2, cr2.val);
+
+	/* cs-gpio */
+	if (spi->chip_select < priv->cnt_gpios) {
+		gpio = priv->cs_gpios[spi->chip_select];
+		if (gpio_is_valid(gpio))
+			gpio_set_value(gpio, !enable);
+	}
+}
+
+
+static void espi_writer (struct espi_data *priv)
 {
 	volatile uint8_t data = ESPI_DUMMY_DATA;
-	uint32_t free = dws->fifo_len - dw_readl(dws, ESPI_TX_FBCAR);
-	uint32_t cnt = min(free,dws->len);
+	uint32_t free = ESPI_FIFO_LEN - espi_readl(priv, ESPI_TX_FBCAR);
+	uint32_t cnt = min(free,priv->txlen);
 
+	priv->txlen -= cnt;
+
+	/* fifo */
 	while (cnt--) {
-		if(dws->tx)
-			data = *dws->tx++;
-		dw_writel(dws, ESPI_TX_FIFO, data);
-		dws->len--;
+		if (priv->tx)
+			data = *priv->tx++;
+		espi_writel(priv, ESPI_TX_FIFO, data);
 	}
+
+	/* mask irq */
+	if (priv->txlen == 0) {
+		espi_irq_t mask;
+		mask.val = espi_readl(priv, ESPI_IMR);
+		mask.bits.tx_almost_empty = ESPI_IRQ_DISABLE;
+		espi_writel(priv, ESPI_IMR, mask.val);
+	}
+
+	/* start */
+	espi_enable_tx (priv);
 }
 
-/**
- * ----------
- * spi_reader
- * ----------
- * @param dws [description]
- */
-static void spi_reader (struct drv_data *dws)
+
+static void espi_reader (struct espi_data *priv)
 {
 	volatile uint8_t data;
-	uint32_t cnt = dw_readl(dws, ESPI_RX_FBCAR);
+	uint32_t have = espi_readl(priv, ESPI_RX_FBCAR);
+	uint32_t cnt = min(have,priv->rxlen);
 
+	priv->rxlen -= cnt;
+
+	/* fifo */
 	while (cnt--) {
-		data = dw_readl(dws, ESPI_RX_FIFO);
-		if (dws->rx)
-			*dws->rx++ = data;
+		data = espi_readl(priv, ESPI_RX_FIFO);
+		if (priv->rx)
+			*priv->rx++ = data;
 	}
 }
 
-/**
- * ----------
- * spi_irq_handler
- * ----------
- * @param  irq    [description]
- * @param  dev_id [description]
- * @return        [description]
- */
-static irqreturn_t spi_irq_handler (int irq, void *dev_id)
+
+static irqreturn_t espi_irq_handler (int irq, void *dev_id)
 {
-	struct spi_master *master;
-	struct drv_data *dws;
 	espi_irq_t status;
+	struct spi_master *master = dev_id;
+	struct espi_data  *priv   = spi_master_get_devdata(master);
+	int ret = -1;
 
-	master = dev_id;
-	dws = spi_master_get_devdata(master);
+	/* get */
+	status.val = espi_readl(priv, ESPI_IVR);
+	espi_writel(priv, ESPI_ISR, status.val);
 
-	/* irq */
-	status.val = dw_readl(dws, ESPI_ISR);
-	dw_writel(dws, ESPI_ISR, ESPI_ISR_CLEAR);
-	dw_writel(dws, ESPI_IMR, ESPI_IMR_DISABLE);
-
-	/* -------- */
-	/* check    */
-	/* -------- */
+	/* check */
 	if (!status.val) {
+		dev_err(&master->dev, "irq_none\n");
 		return IRQ_NONE;
 	}
-	if (!master->cur_msg) {
-		spi_reset_master(master);
-		return IRQ_HANDLED;
+	if (status.bits.tx_underflow) {
+		dev_err(&master->dev, "tx_underflow\n");
+		goto exit;
 	}
-	if (status.bits.tx_underflow && dws->len) {
-		dev_err(&master->dev, "error: fifo underflow\n");
-		goto err;
+	if (status.bits.tx_overrun) {
+		dev_err(&master->dev, "tx_overrun\n");
+		goto exit;
 	}
-	if (status.bits.tx_overrun |
-		status.bits.rx_underrun |
-		status.bits.rx_overrun) {
-		dev_err(&master->dev, "error: fifo overrun/underrun\n");
-		goto err;
+	if (status.bits.rx_underrun) {
+		dev_err(&master->dev, "rx_underrun\n");
+		goto exit;
 	}
+	if (status.bits.rx_overrun) {
+		dev_err(&master->dev, "rx_overrun\n");
+		goto exit;
+	}
+	/*
+	if (status.bits.tx_done_master && (priv->txlen || priv->rxlen)) {
+		dev_err(&master->dev, "tx_done_master && len != 0\n");
+		goto exit;
+	}
+	*/
 
-	/* -------- */
+
 	/* transfer */
-	/* -------- */
-	spi_reader(dws);
-	if (!dws->len) {
-		spi_finalize_current_transfer(master);
-		return IRQ_HANDLED;
+	espi_reader(priv);
+	espi_writer(priv);
+	ret = 0;
+
+exit:
+	/* reset */
+	if (ret)
+		espi_reset(priv);
+
+	/* finalize */
+	if (ret || (priv->txlen == 0 && priv->rxlen == 0)) {
+		espi_writel(priv, ESPI_IMR, ESPI_IMR_DISABLE);
+		espi_writel(priv, ESPI_ISR, ESPI_ISR_CLEAR);
+
+		if (master->cur_msg) {
+			if(ret)
+				master->cur_msg->status = -EIO;
+			spi_finalize_current_transfer(master);
+		}
 	}
-	spi_writer(dws);
-
-	/* irq */
-	dw_writel(dws, ESPI_IMR, status.val);
 	return IRQ_HANDLED;
-
-
-	/* -------- */
-	/* err      */
-	/* -------- */
-	err:
-		spi_reset_master(master);
-		master->cur_msg->status = -EIO;
-		spi_finalize_current_transfer(master);
-		return IRQ_HANDLED;
 }
 
 
-/**
- * ------------------
- * spi_transfer_one
- * ------------------
- * @param  master   [description]
- * @param  spi      [description]
- * @param  transfer [description]
- * @return          [description]
- */
-static int spi_transfer_one(
+static int espi_transfer_one(
 		struct spi_master   *master,
 		struct spi_device   *spi,
 		struct spi_transfer *transfer)
 {
-	struct drv_data *dws = spi_master_get_devdata(spi->master);
+	struct espi_data *priv = spi_master_get_devdata(spi->master);
+
+	/* transfer */
+	priv->tx = (void*) transfer->tx_buf;
+	priv->rx = (void*) transfer->rx_buf;
+	priv->txlen = transfer->len;
+	priv->rxlen = transfer->len;
+
+	/* clear */
+	espi_writel(priv, ESPI_IMR, ESPI_IMR_DISABLE);
+	espi_writel(priv, ESPI_ISR, ESPI_ISR_CLEAR);
+
+	/* threshold */
+	espi_writel(priv, ESPI_TX_FAETR, ESPI_FIFO_LEN/2);
+	espi_writel(priv, ESPI_RX_FAFTR, ESPI_FIFO_LEN/8);
+
+	/* clk */
+	if (transfer->speed_hz && (transfer->speed_hz != spi->max_speed_hz))
+		clk_set_rate(priv->clk, transfer->speed_hz);
+
+	espi_enable_rx(priv);  /* enable rx */
+	espi_writer(priv);     /* prepare data */
+	espi_writel(priv, ESPI_IMR, ESPI_IMR_ENABLE);  /* mask */
+
+	return 0;
+}
+
+
+static int espi_setup (struct spi_device *spi)
+{
+	struct espi_data *priv = spi_master_get_devdata(spi->master);
 	espi_cr1_t cr1;
 	espi_cr2_t cr2;
-	espi_irq_t mask;
 
-	/* --------- */
-	/* transfer  */
-	/* --------- */
-	dws->tx  = (void*) transfer->tx_buf;
-	dws->rx  = (void*) transfer->rx_buf;
-	dws->len = transfer->len;
+	/* reset */
+	espi_reset(priv);
 
-
-	/* ---------- */
-	/* control    */
-	/* ---------- */
-	cr1.val = dw_readl(dws, ESPI_CR1);
+	/* control */
+	cr1.val = espi_readl(priv, ESPI_CR1);
 	cr1.bits.scr = ESPI_CR1_SCR_NORESET;
 	cr1.bits.sce = ESPI_CR1_SCE_CORE_ENABLE;
 	cr1.bits.mss = ESPI_CR1_MSS_MODE_MASTER;
 	cr1.bits.cph = (spi->mode|SPI_CPHA)? ESPI_CR1_CPH_CLKPHASE_ODD : ESPI_CR1_CPH_CLKPHASE_EVEN;
 	cr1.bits.cpo = (spi->mode|SPI_CPOL)? ESPI_CR1_CPO_CLKPOLAR_LOW : ESPI_CR1_CPO_CLKPOLAR_HIGH;
-	dw_writel(dws, ESPI_CR1, cr1.val);
+	espi_writel(priv, ESPI_CR1, cr1.val);
 
-	cr2.val = dw_readl(dws, ESPI_CR2);
+	cr2.val = espi_readl(priv, ESPI_CR2);
 	cr2.bits.srd = ESPI_CR2_SRD_RX_ENABLE;
 	cr2.bits.mte = ESPI_CR2_MTE_TX_DISABLE;
 	cr2.bits.sri = ESPI_CR2_SRI_FIRST_RESIEV;
 	cr2.bits.mlb = (spi->mode|SPI_LSB_FIRST)? ESPI_CR2_MLB_LSB : ESPI_CR2_MLB_MSB;
-	dw_writel(dws, ESPI_CR2, cr2.val);
-
-
-	/* ---------- */
-	/* threshold  */
-	/* ---------- */
-	dw_writel(dws, ESPI_TX_FAETR, dws->tx_almost_empty);
-	dw_writel(dws, ESPI_RX_FAFTR, dws->rx_almost_full);
-
-
-	/* ---------- */
-	/* interrupts */
-	/* ---------- */
-	mask.val = 0;
-	/* errors */
-	mask.bits.tx_overrun      = ESPI_IRQ_ENABLE;
-	mask.bits.rx_overrun      = ESPI_IRQ_ENABLE;
-	mask.bits.rx_underrun     = ESPI_IRQ_ENABLE;
-	/* transfer */
-	mask.bits.tx_underflow    = ESPI_IRQ_ENABLE;
-	mask.bits.tx_almost_empty = ESPI_IRQ_ENABLE;
-	mask.bits.rx_almost_full  = ESPI_IRQ_ENABLE;
-	dw_writel(dws, ESPI_IMR, mask.val);
-
-
-	/* ------------ */
-	/* prepare data */
-	/* ------------ */
-	spi_writer(dws);
-
-
-	/* -------------- */
-	/* start transfer */
-	/* -------------- */
-	cr2.val = dw_readl(dws, ESPI_CR2);
-	cr2.bits.mte = ESPI_CR2_MTE_TX_ENABLE;
-	dw_writel(dws, ESPI_CR2, cr2.val);
+	espi_writel(priv, ESPI_CR2, cr2.val);
 
 	return 0;
 }
 
 
-/**
- * ---------------------
- * driver
- * ---------------------
- * @param  pdev [description]
- * @return      [description]
- */
-static int driver (struct platform_device *pdev)
+/* ---------------- */
+/* DRIVER           */
+/* ---------------- */
+static int espi_probe (struct platform_device *pdev)
 {
 	struct device *dev = &(pdev->dev);
-	struct drv_data *dws;
+	struct espi_data *priv;
 	struct resource *mem;
+	int i;
+	int err;
+	struct spi_master *master;
+
+	/* ------ */
+	/* PRIV   */
+	/* ------ */
 
 	/* init */
-	dws = devm_kzalloc(dev, sizeof(struct drv_data), GFP_KERNEL);
-	if (!dws){
+	priv = devm_kzalloc(dev, sizeof(struct espi_data), GFP_KERNEL);
+	if (!priv){
 		dev_err(dev, "no memory\n");
 		return -ENOMEM;
 	}
-	platform_set_drvdata(pdev, dws);
+	platform_set_drvdata(pdev, priv);
 
 	/* reg */
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	dws->regs = devm_ioremap_resource(dev, mem);
-	if (IS_ERR(dws->regs)) {
-		dev_err(dev, "SPI region map failed\n");
-		return PTR_ERR(dws->regs);
+	if (!mem){
+		return -EINVAL;
+	}
+
+	priv->regs = devm_ioremap_resource(dev, mem);
+	if (IS_ERR(priv->regs)) {
+		dev_err(dev, "region map failed\n");
+		return PTR_ERR(priv->regs);
 	}
 
 	/* irq */
-	dws->irq = platform_get_irq(pdev, 0);
-	if (dws->irq < 0) {
+	priv->irq = platform_get_irq(pdev, 0);
+	if (priv->irq < 0) {
 		dev_err(&pdev->dev, "no irq resource\n");
-		return dws->irq;
+		return priv->irq;
 	}
 
-	/* fifo-len */
-	dws->fifo_len        = ESPI_FIFO_LEN;
-	dws->tx_almost_empty = dws->fifo_len/2;
-	dws->rx_almost_full  = dws->fifo_len/2;
-	device_property_read_u32(dev, "fifo-len",        &dws->fifo_len);
-	device_property_read_u32(dev, "tx-almost-empty", &dws->tx_almost_empty);
-	device_property_read_u32(dev, "rx-almost-full",  &dws->rx_almost_full);
+	/* clk */
+	priv->clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(priv->clk)) {
+		dev_err(dev, "could not get spi clock\n");
+		return PTR_ERR(priv->clk);
+	}
 
-	return 0;
-}
+	/* gpio */
+	priv->cnt_gpios = of_gpio_named_count(dev->of_node, "cs-gpios");
+	priv->cs_gpios = devm_kzalloc (dev, sizeof(int) * priv->cnt_gpios, GFP_KERNEL);
 
+	for (i = 0; i < priv->cnt_gpios; i++)
+		priv->cs_gpios[i] = -ENOENT;
 
-/**
- * ---------------------
- * master
- * ---------------------
- * @param  pdev [description]
- * @return      [description]
- */
-static int master (struct platform_device *pdev)
-{
-	struct spi_master *master;
-	struct device *dev = &pdev->dev;
-	struct drv_data *dws = platform_get_drvdata(pdev);
-	int ret;
+	for (i = 0; i < priv->cnt_gpios; i++) {
+		int gpio = of_get_named_gpio(dev->of_node, "cs-gpios", i);
+		if (gpio_is_valid(gpio) && !devm_gpio_request(dev, gpio, dev_name(dev))){
+			priv->cs_gpios[i] = gpio;
+			gpio_direction_output (gpio, 1);
+		}
+	}
 
-	/* init */
+	/* ------ */
+	/* MASTER */
+	/* ------ */
+
+	/* alloc */
 	master = spi_alloc_master(dev, 0);
-	if (!master)
+	if (!master){
 		return -ENOMEM;
-	dws->master = master;
+	}
+	priv->master = master;
 
-	/* irq */
-	ret = request_irq(dws->irq, spi_irq_handler, IRQF_SHARED, DRIVER_NAME, master);
-	if (ret < 0) {
-		dev_err(dev, "can not get IRQ\n");
-		goto err_free_master;
+	/* cs-num */
+	master->num_chipselect = 8;
+	device_property_read_u16(dev, "num-cs", &master->num_chipselect);
+	master->num_chipselect = max_t(int, master->num_chipselect, priv->cnt_gpios);
+
+	/* clk */
+	err = clk_prepare_enable(priv->clk);
+	if (err){
+		return err;
+	}
+	if (device_property_read_u32(dev, "spi-max-frequency", &master->max_speed_hz)){
+		dev_err(dev, "no valid 'spi-max-frequency' property\n");
+		master->max_speed_hz = clk_get_rate(priv->clk);
 	}
 
-	/* property */
-	master->num_chipselect = 8;
-	master->min_speed_hz = ESPI_FREQUENCY;
-	master->max_speed_hz = ESPI_FREQUENCY;
-	device_property_read_u32(dev, "spi-min-frequency", &master->min_speed_hz);
-	device_property_read_u32(dev, "spi-max-frequency", &master->max_speed_hz);
-	device_property_read_u16(dev, "num-cs",            &master->num_chipselect);
-	master->mode_bits = SPI_CPHA | SPI_CPOL | SPI_LSB_FIRST;
+	/* misk */
+	master->mode_bits = SPI_CPHA | SPI_CPOL;
+	master->dev.of_node = dev->of_node;
 
 	/* operation */
-	master->transfer_one  = spi_transfer_one;
-	master->set_cs        = spi_set_cs;
+	master->transfer_one = espi_transfer_one;
+	master->set_cs = espi_set_cs;
+	master->setup = espi_setup;
+	master->bus_num = of_alias_get_id(master->dev.of_node, "espi");
 
-	spi_reset_master(master);
+	/* irq */
+	err = devm_request_irq(dev, priv->irq, espi_irq_handler, IRQF_SHARED, pdev->name, master);
+	if (err) {
+		dev_err(&pdev->dev, "unable to request irq %d\n", priv->irq);
+		return err;
+	}
+
+	/* data */
+	spi_master_set_devdata(master, priv);
+
 
 	/* register */
-	master->dev.of_node = dev->of_node;
-	ret = devm_spi_register_master(dev, master);
-	if (ret) {
+	err = devm_spi_register_master(dev, master);
+	if (err) {
 		dev_err(&master->dev, "problem registering spi master\n");
-		goto err_free_irq;
+		goto err_free_master;
 	}
 	return 0;
 
-
-err_free_irq:
-	free_irq(dws->irq, master);
 err_free_master:
 	spi_master_put(master);
-	return ret;
+	return err;
 }
 
 
-/**
- * ----------------
- * probe
- * ----------------
- * @param  pdev [description]
- * @return      [description]
- */
-static int probe (struct platform_device *pdev)
+static int espi_remove (struct platform_device *pdev)
 {
-	int ret;
-
-	ret = driver(pdev);
-	if (ret)
-		return ret;
-
-	ret = master(pdev);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-
-/**
- * ----------------
- * remove host
- * ----------------
- * @param  pdev [description]
- * @return      [description]
- */
-static int remove (struct platform_device *pdev)
-{
-	struct drv_data *dws = platform_get_drvdata(pdev);
-	spi_reset_master(dws->master);
-	free_irq(dws->irq, dws->master);
+	struct espi_data *priv = platform_get_drvdata(pdev);
+	espi_reset(priv);
+	clk_disable_unprepare(priv->clk);
 	return 0;
 }
 
@@ -431,21 +407,21 @@ static int remove (struct platform_device *pdev)
 /* ---------------- */
 /* PLATFORM         */
 /* ---------------- */
-static const struct of_device_id dw_spi_mmio_of_match[] = {
-	{ .compatible = DRIVER_NAME, },
+static const struct of_device_id espi_table[] = {
+	{ .compatible = "be,espi", },
 	{ /* end of table */ }
 };
-MODULE_DEVICE_TABLE(of, dw_spi_mmio_of_match);
+MODULE_DEVICE_TABLE(of, espi_table);
 
-static struct platform_driver dw_spi_mmio_driver = {
-	.probe		= probe,
-	.remove		= remove,
+static struct platform_driver espi_driver = {
+	.probe		= espi_probe,
+	.remove		= espi_remove,
 	.driver		= {
-		.name	= DRIVER_NAME,
-		.of_match_table = dw_spi_mmio_of_match,
+		.name	= "be,espi",
+		.of_match_table = espi_table,
 	},
 };
-module_platform_driver(dw_spi_mmio_driver);
+module_platform_driver(espi_driver);
 
 MODULE_AUTHOR("");
 MODULE_DESCRIPTION("");

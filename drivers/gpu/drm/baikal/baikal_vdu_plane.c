@@ -34,6 +34,35 @@
 
 #define BAIKAL_SMC_VDU_UPDATE_HDMI	0x82000100
 
+void baikal_vdu_update_work(struct work_struct *work)
+{
+	struct arm_smccc_res res;
+	struct baikal_vdu_private *priv = container_of(work, struct baikal_vdu_private,
+			update_work.work);
+	int count = 0;
+	u64 t1, t2;
+	t1 = read_sysreg(CNTVCT_EL0);
+	arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, priv->fb_addr, priv->fb_end, 0, 0, 0, 0, 0, &res);
+	if (res.a0 == -EBUSY)
+		priv->counters[15]++;
+	else
+		priv->counters[16]++;
+	while (res.a0 == -EBUSY && count < 10) {
+		count++;
+		usleep_range(10000, 20000);
+		res.a0 = 0;
+		arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, priv->fb_addr, priv->fb_end, 0, 0, 0, 0, 0, &res);
+		if (res.a0 == -EBUSY)
+			priv->counters[15]++;
+		else
+			priv->counters[16]++;
+	}
+	t2 = read_sysreg(CNTVCT_EL0);
+	priv->counters[17] = t2 - t1;
+	priv->counters[18] = count;
+	priv->counters[19]++;
+}
+
 static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 					    struct drm_plane_state *state)
 {
@@ -91,6 +120,15 @@ static void baikal_vdu_primary_plane_atomic_update(struct drm_plane *plane,
 	spin_lock_irqsave(&priv->lock, flags);
 	arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, addr, end, 0, 0, 0, 0, 0, &res);
 	spin_unlock_irqrestore(&priv->lock, flags);
+
+	if (res.a0 == -EBUSY) {
+		priv->counters[15]++;
+		priv->fb_addr = addr;
+		priv->fb_end = end;
+		smp_wmb();
+		schedule_delayed_work(&priv->update_work, usecs_to_jiffies(250));
+	} else
+		priv->counters[16]++;
 
 	cntl = readl(priv->regs + CR1);
 	cntl &= ~CR1_BPP_MASK;
