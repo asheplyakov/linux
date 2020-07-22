@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.9.227 Kernel Configuration
+# Linux/arm64 4.9.229 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -3257,7 +3257,7 @@ CONFIG_DRM_BRIDGE=y
 # CONFIG_DRM_ANALOGIX_ANX78XX is not set
 # CONFIG_DRM_DUMB_VGA_DAC is not set
 CONFIG_DRM_BAIKAL_HDMI=y
-CONFIG_DRM_DW_HDMI_AHB_AUDIO=m
+CONFIG_DRM_BAIKAL_HDMI_AHB_AUDIO=m
 # CONFIG_DRM_NXP_PTN3460 is not set
 # CONFIG_DRM_PARADE_PS8622 is not set
 # CONFIG_DRM_SII902X is not set
