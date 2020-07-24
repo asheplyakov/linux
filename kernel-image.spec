@@ -4,7 +4,7 @@
 
 Name: kernel-image-bmitx-def
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
-Release: alt1
+Release: alt2
 
 %define kernel_extra_version_numeric 1.0.0
 
@@ -251,6 +251,9 @@ rm -f /boot/dtb
 ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
 
 %changelog
+* Fri Jul 24 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.229-alt2
+- Disabled console blanking to avoid permanent black screen on boot
+
 * Wed Jul 22 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.229-alt1
 - Baikal SDK-M-4.3: HDMI audio support, video stability improvements
 
