@@ -22,6 +22,7 @@
 
 #include <drm/drm_gem.h>
 #include <drm/drm_simple_kms_helper.h>
+#include <linux/workqueue.h>
 
 struct clk;
 struct drm_device;
@@ -55,8 +56,13 @@ struct baikal_vdu_private {
 	void *regs;
 	struct clk *clk;
 	spinlock_t lock;
-	u32 counters[15];
+	u32 counters[20];
 	int mode_fixup;
+
+	u32 fb_addr;
+	u32 fb_end;
+
+	struct delayed_work update_work;
 };
 
 #define to_baikal_vdu_drm_connector(x) \
@@ -87,5 +93,8 @@ int baikal_vdu_dumb_create(struct drm_file *file_priv,
 		      struct drm_mode_create_dumb *args);
 
 int baikal_vdu_debugfs_init(struct drm_minor *minor);
+
+/* Worker functions */
+void baikal_vdu_update_work(struct work_struct *work);
 
 #endif /* __BAIKAL_VDU_DRM_H__ */

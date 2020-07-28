@@ -20,6 +20,7 @@
  *
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/irq.h>
 #include <linux/clk.h>
 #include <linux/version.h>
@@ -29,6 +30,7 @@
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
@@ -47,9 +49,11 @@
 #include "baikal_vdu_drm.h"
 #include "baikal_vdu_regs.h"
 
-#define DRIVER_NAME		"baikal-vdu"
-#define DRIVER_DESC		"DRM module for Baikal VDU"
-#define DRIVER_DATE		"20200131"
+#define DRIVER_NAME                 "baikal-vdu"
+#define DRIVER_DESC                 "DRM module for Baikal VDU"
+#define DRIVER_DATE                 "20200131"
+
+#define BAIKAL_SMC_SCP_LOG_DISABLE  0x82000200
 
 int mode_fixup = 0;
 
@@ -63,6 +67,7 @@ static int vdu_modeset_init(struct drm_device *dev)
 {
 	struct drm_mode_config *mode_config;
 	struct baikal_vdu_private *priv = dev->dev_private;
+	struct arm_smccc_res res;
 	int ret = 0;
 
 	if (priv == NULL)
@@ -145,6 +150,10 @@ static int vdu_modeset_init(struct drm_device *dev)
 		dev_err(dev->dev, "Failed to init vblank\n");
 		goto out_clk;
 	}
+
+	arm_smccc_smc(BAIKAL_SMC_SCP_LOG_DISABLE, 0, 0, 0, 0, 0, 0, 0, &res);
+	INIT_DEFERRABLE_WORK(&priv->update_work,
+			     baikal_vdu_update_work);
 
 	drm_mode_config_reset(dev);
 
