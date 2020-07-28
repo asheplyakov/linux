@@ -158,7 +158,7 @@
 		cmu-id = <0x30010000>;
 		max = <600000000>;
 		min = <13500000>;
-		clock-frequency = <31500000>;
+		clock-frequency = <25187500>;
 	};
 
 	clocks {

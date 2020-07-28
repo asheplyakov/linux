@@ -96,6 +96,10 @@
 	status = "okay";
 };
 
+&vdec {
+	status = "okay";
+};
+
 &gpio {
 	status = "okay";
 };
@@ -193,7 +197,6 @@
 
 &i2c1 {
 	status = "okay";
-
 };
 
 &smbus0 {
@@ -282,3 +285,16 @@
 	};
 };
 #endif
+
+&espi0 {
+	cs-gpios = <&porta 28 1>;   /* todo: get real gpio */
+	status = "okay";
+
+	/* test device #0 */
+	espi_test0 {
+		compatible = "rohm,dh2228fv"; /* same as spidev */
+		reg = <0>;
+		spi-max-frequency = <12000000>;
+		status = "okay";
+	};
+};
