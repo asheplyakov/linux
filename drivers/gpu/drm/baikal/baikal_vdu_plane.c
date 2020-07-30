@@ -37,12 +37,15 @@
 void baikal_vdu_update_work(struct work_struct *work)
 {
 	struct arm_smccc_res res;
+	unsigned long flags;
 	struct baikal_vdu_private *priv = container_of(work, struct baikal_vdu_private,
 			update_work.work);
 	int count = 0;
 	u64 t1, t2;
 	t1 = read_sysreg(CNTVCT_EL0);
+	spin_lock_irqsave(&priv->lock, flags);
 	arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, priv->fb_addr, priv->fb_end, 0, 0, 0, 0, 0, &res);
+	spin_unlock_irqrestore(&priv->lock, flags);
 	if (res.a0 == -EBUSY)
 		priv->counters[15]++;
 	else
@@ -51,7 +54,9 @@ void baikal_vdu_update_work(struct work_struct *work)
 		count++;
 		usleep_range(10000, 20000);
 		res.a0 = 0;
+		spin_lock_irqsave(&priv->lock, flags);
 		arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, priv->fb_addr, priv->fb_end, 0, 0, 0, 0, 0, &res);
+		spin_unlock_irqrestore(&priv->lock, flags);
 		if (res.a0 == -EBUSY)
 			priv->counters[15]++;
 		else
