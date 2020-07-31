@@ -282,7 +282,7 @@ config VMD
 	  module will be called vmd.
 
 config PCI_BAIKAL
-       bool "Baikal SoC PCIe controller"
+       tristate "Baikal SoC PCIe controller"
        depends on ARCH_BAIKAL
        depends on OF && HAS_IOMEM
        depends on PCI_MSI_IRQ_DOMAIN
