@@ -12,7 +12,7 @@ config PCI_DRA7XX
 	 act both as EP and RC.  This reuses the Designware core.
 
 config PCI_BAIKAL
-	bool "Baikal SoC PCIe controller"
+	tristate "Baikal SoC PCIe controller"
 	depends on ARCH_BAIKAL
 	depends on OF && HAS_IOMEM
 	depends on PCI_MSI_IRQ_DOMAIN

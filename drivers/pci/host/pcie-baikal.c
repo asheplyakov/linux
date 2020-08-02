@@ -11,6 +11,7 @@
  */
 
 #include <linux/interrupt.h>
+#include <linux/module.h>
 #include <linux/irqchip/arm-gic-v3.h>
 #include <linux/mfd/baikal/lcru-pcie.h>
 #include <linux/mfd/syscon.h>
@@ -235,7 +236,21 @@ static void baikal_pcie_link_speed_fixup(struct pci_dev *pdev)
 
 	pcie->retrained = 1;
 }
-DECLARE_PCI_FIXUP_FINAL(PCI_ANY_ID, PCI_ANY_ID, baikal_pcie_link_speed_fixup);
+
+static void baikal_pcie_retrain_links(const struct pci_bus *bus)
+{
+       struct pci_dev *dev;
+       struct pci_bus *child;
+
+       list_for_each_entry(dev, &bus->devices, bus_list)
+               baikal_pcie_link_speed_fixup(dev);
+
+       list_for_each_entry(dev, &bus->devices, bus_list) {
+               child = dev->subordinate;
+               if (child)
+                       baikal_pcie_retrain_links(child);
+       }
+}
 
 static int baikal_pcie_link_up(struct pcie_port *pp)
 {
@@ -644,6 +659,7 @@ static int baikal_add_pcie_port(struct baikal_pcie *pcie,
 		dev_err(pp->dev, "failed to initialize host\n");
 		return ret;
 	}
+	baikal_pcie_retrain_links(pp->root_bus);
 
 	return 0;
 }
@@ -769,4 +785,7 @@ static struct platform_driver baikal_pcie_driver = {
 	},
 	.probe = baikal_pcie_probe,
 };
-builtin_platform_driver(baikal_pcie_driver);
+
+MODULE_DEVICE_TABLE(of, of_baikal_pcie_match);
+module_platform_driver(baikal_pcie_driver);
+MODULE_LICENSE("GPL v2");
