@@ -22,6 +22,7 @@
 #include <linux/irqdomain.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/baikal/lcru-pcie.h>
 #include <linux/msi.h>
@@ -301,7 +302,7 @@ static inline void dw_pcie_link_retrain(struct pcie_port *pp, int target_speed)
 }
 
 
-static void pcie_link_speed_fixup(struct pci_dev *pdev)
+static void baikal_pcie_link_speed_fixup(struct pci_dev *pdev)
 {
 	int reg, speed, width, target_speed;
 	struct pcie_port *pp = pdev->bus->sysdata;
@@ -331,7 +332,21 @@ static void pcie_link_speed_fixup(struct pci_dev *pdev)
 		}
 	}
 }
-DECLARE_PCI_FIXUP_FINAL(PCI_ANY_ID, PCI_ANY_ID, pcie_link_speed_fixup);
+
+static void baikal_pcie_retrain_links(const struct pci_bus *bus)
+{
+	struct pci_dev *dev;
+	struct pci_bus *child;
+
+	list_for_each_entry(dev, &bus->devices, bus_list)
+		baikal_pcie_link_speed_fixup(dev);
+
+	list_for_each_entry(dev, &bus->devices, bus_list) {
+		child = dev->subordinate;
+		if (child)
+			baikal_pcie_retrain_links(child);
+	}
+}
 
 static uint32_t dw_pcie_phy_read(struct pcie_port *pp, uint32_t phy_addr)
 {
@@ -965,7 +980,7 @@ static void baikal_pcie_fine_tune(struct pcie_port *pp)
 
 }
 
-static int __init baikal_add_pcie_port(struct baikal_pcie *rc,
+static int baikal_add_pcie_port(struct baikal_pcie *rc,
 				       struct platform_device *pdev)
 {
 	struct pcie_port *pp = &rc->pp;
@@ -1042,6 +1057,7 @@ static int __init baikal_add_pcie_port(struct baikal_pcie *rc,
 		dev_err(pp->dev, "failed to initialize host\n");
 		return ret;
 	}
+	baikal_pcie_retrain_links(pp->root_bus);
 
 	return 0;
 }
@@ -1109,7 +1125,7 @@ static const struct of_device_id of_baikal_pcie_match[] = {
 	{},
 };
 int	be_debug = 0;
-static int __init baikal_pcie_probe(struct platform_device *pdev)
+static int baikal_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
@@ -1528,4 +1544,7 @@ static struct platform_driver baikal_pcie_driver = {
 	},
 	.probe = baikal_pcie_probe,
 };
-builtin_platform_driver(baikal_pcie_driver);
+
+MODULE_DEVICE_TABLE(of, of_baikal_pcie_match);
+module_platform_driver(baikal_pcie_driver);
+MODULE_LICENSE("GPL v2");
