@@ -251,6 +251,9 @@ rm -f /boot/dtb
 ln -s /lib/devicetree/%kversion-%flavour-%krelease /boot/dtb
 
 %changelog
+* Tue Aug 04 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.229-alt4
+- Updates from SDK-M-4.3 20200730 (eMMC and PCI-e fixes)
+
 * Mon Aug 03 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.9.229-alt3
 - Adapted PCI-e driver so it can be built as a module
 - Fixed possible race in baikal_vdu_drm driver
