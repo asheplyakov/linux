@@ -1177,6 +1177,9 @@ static int baikal_pcie_probe(struct platform_device *pdev)
 		goto err_pm_disable;
 	}
 
+	baikal_pcie_cease_link(pcie);
+
+	/* LINK DISABLED */
 	reset_gpio = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0, &flags);
 	if (reset_gpio != -EPROBE_DEFER && gpio_is_valid(reset_gpio)) {
 		unsigned long gpio_flags;

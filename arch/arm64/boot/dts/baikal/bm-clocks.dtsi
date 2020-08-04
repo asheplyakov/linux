@@ -355,7 +355,7 @@
 			clock-output-names = "baikal-cmu";
 		};
 
-                usb_clk:usb_clk@1F04D074 {
+		usb_clk:usb_clk@1F04D074 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
                         clock-names = "usbclk";

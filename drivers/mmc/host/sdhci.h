@@ -291,6 +291,11 @@
 #define   SDHCI_SPEC_410	4
 #define   SDHCI_SPEC_420	5
 
+#define SDHCI_EMMC_CONTROL	0x52C
+#define  SDHCI_EMMC_TYPE_MMC		(1 << 0)  /* 0-sd,     1-mmc     */
+#define  SDHCI_EMMC_CRC_DISABLE		(1 << 1)  /* 0-enable, 1-disable */
+#define  SDHCI_EMMC_DONT_RESET		(1 << 2)  /* 0-reset,  1-dont    */
+
 /*
  * End of controller registers.
  */
@@ -487,6 +492,7 @@ struct sdhci_host {
  * block count.
  */
 #define SDHCI_QUIRK2_USE_32BIT_BLK_CNT			(1<<18)
+#define SDHCI_QUIRK2_BROKEN_64_BIT_DMA_MASK		(1<<19)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
@@ -781,7 +787,7 @@ void sdhci_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 void sdhci_set_bus_width(struct sdhci_host *host, int width);
 void sdhci_reset(struct sdhci_host *host, u8 mask);
 void sdhci_set_uhs_signaling(struct sdhci_host *host, unsigned timing);
-void sdhci_adma_write_desc(struct sdhci_host *host, void *desc,
+void sdhci_adma_write_desc(struct sdhci_host *host, void **desc,
 				  dma_addr_t addr, int len, unsigned cmd);
 void sdhci_enable_v4_mode(struct sdhci_host *host);
 void sdhci_dumpregs(struct sdhci_host *host);
