@@ -1,0 +1,292 @@
+/*
+* Copyright 2015-2016 ELVEES NeoTek JSC
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#include "vm-014-01-base.dtsi"
+
+/ {
+	model = "VM14 Mini";
+	revision = "1.0";
+	poweroff-gpio = <&gpioc 6 GPIO_ACTIVE_HIGH>;
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	aliases {
+		spi0 = &spi0;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+        ethernet0 = &ethernet;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x40000000
+		       0xa0000000 0x40000000>;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led@1 {
+			label = "led_act";
+			gpios = <&gpioc 9 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "heartbeat";
+		};
+
+	};
+
+	xtican: xtican {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <16000000>;
+	};
+    
+    therm_18B20 {
+        compatible = "w1-gpio";
+        gpios = <&gpioc 5 GPIO_ACTIVE_LOW>;
+    };
+    
+    mfbsp0: mfbsp@38086000 {
+        #sound-dai-cells = <0>;
+        compatible = "elvees,mfbsp-i2s";
+        reg = <0x38086000 0x1000>,
+                <0x38087000 0x000f>,
+                <0x38087040 0x000f>;
+        reg-names = "mfbsp",
+                "dma-playback",
+                "dma-capture";
+        interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
+                    <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "dma-playback",
+                    "dma-capture";
+        clocks = <&mfbsp0_aclk>;
+        status = "okay";
+    };
+
+    sound {
+        compatible = "simple-audio-card";
+        simple-audio-card,name = "VM14 Com Express Analog Audio";
+        simple-audio-card,format = "i2s";
+        simple-audio-card,bitclock-master = <&dailink0_master>;
+        simple-audio-card,frame-master = <&dailink0_master>;
+
+        simple-audio-card,cpu {
+            sound-dai = <&mfbsp0>;
+        };
+
+        dailink0_master: simple-audio-card,codec {
+            sound-dai = <&acodec>;
+            system-clock-frequency = <24000000>;
+        };
+    };
+    
+    ext_supply: charger {
+		compatible = "gpio-charger";
+		charger-type = "mains";
+		gpios = <&gpioa 4 GPIO_ACTIVE_HIGH>;
+	};
+    
+    /*hdmi-out {
+		compatible = "hdmi-connector";
+		type = "a";
+
+		port {
+			hdmi_con: endpoint {
+				remote-endpoint = <&adv7511_out>;
+			};
+		};
+	};*/
+    
+    /*hdmi_tx_panel: panel0 {
+		compatible = "elvees,mcom02-vpout,panel";
+		
+
+		display-timings {
+			800x480p60 {
+				clock-frequency = <33300000>;
+				hactive = <800>;
+				vactive = <480>;
+				hfront-porch = <85>;
+				hback-porch = <85>;
+				hsync-len = <86>;
+				vfront-porch = <15>;
+				vback-porch = <15>;
+				vsync-len = <15>;
+			};
+		};
+
+		port {
+			hdmi_tx_in: endpoint {
+				remote-endpoint = <&hdmi_tx_out>;
+			};
+		};
+	};*/
+};
+
+&nor_sclk_div {
+    clk-div-initial = <2>;
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>, <&gpiod 19 0>;
+	spi-max-frequency = <144000000>;
+
+	flash: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0>;
+		spi-max-frequency = <48000000>;
+		u-boot,dm-pre-reloc;
+
+		partition@0 {
+			label = "u-boot-spl";
+			reg = <0x0 0x10000>;
+		};
+
+		partition@1 {
+			label = "u-boot";
+			reg = <0x10000 0x80000>;
+		};
+
+		partition@2 {
+			label = "u-boot env";
+			reg = <0x90000 0x10000>;
+		};/**/
+
+		partition@3 {
+			label = "kernel";
+			reg = <0x100000 0x210000>;
+		};
+
+		partition@4 {
+			label = "RootFS";
+			reg = <0x310000 0xCF0000>;
+		};
+	};
+	
+	spidev@1 {
+            spi-max-frequency = <24000000>;
+            reg = <1>;
+            compatible = "rohm,dh2228fv";
+    };
+};
+
+&ethernet {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	phy-mode = "mii";
+	phy-handle = <&ethernet_phy>;
+	phy-reset-gpios = <&gpioa 11 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy: ethernet-phy@0 {
+		reg = <2>;
+        /*interrupt-parent = <&gpioa>;
+        interrupts = <13 IRQ_TYPE_LEVEL_LOW>;*/
+	};
+};
+
+&wdt {
+    status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+
+/*
+ * RS-485 - 1
+ */
+&uart2 {
+	status = "okay";
+    rts-gpio = <&gpioa 31 GPIO_ACTIVE_LOW>;
+    linux,rs485-enabled-at-boot-time;
+    rs485-rts-active-high;
+};
+
+/*
+ * RS-485 - 2
+ */
+&uart3 {
+	status = "okay";
+    rts-gpio = <&gpioc 1 GPIO_ACTIVE_LOW>;
+    linux,rs485-enabled-at-boot-time;
+    rs485-rts-active-high;
+};
+
+&i2c0 {
+    status = "okay";
+    acodec: nau88c22@1a {
+        #sound-dai-cells = <0>;
+        compatible = "nuvoton,nau88c22";
+        clocks = <&xti24m>;
+        reg = <0x1A>;
+    };
+    
+    max17205@32 {
+		compatible  = "maxim,max17205";
+		reg         = <0x36>;
+		rsense      = <10>;      /* miliOhm */
+		talrt-min   = <(-40)>;     /* DegreeC */
+		talrt-max   = <65>;      /* DegreeC */
+		valrt-min   = <6000>;    /* mV */
+		valrt-max   = <8400>;    /* mV */
+		salrt-min   = <1>;       /* Percent */
+		salrt-max   = <99>;      /* Percent */
+		ialrt-min   = <(-7000)>; /* mA */
+		ialrt-max   = <7000>;    /* mA */
+		
+		power-supplies = <&ext_supply>;
+	};
+};
+
+&i2c2 {
+    status = "okay";
+    
+    hdmi_tx: adv7511@7a {
+        compatible = "adi,adv7511w";
+        reset = <&gpioc 2 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpioc 2 GPIO_ACTIVE_HIGH>;
+        interrupt-parent = <&gpioa>;
+        interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
+        reg = <0x3d>;
+    };
+};
+
+&framebuffer {
+    status = "okay";
+    u-boot,dm-pre-reloc;
+    output = <&hdmi_tx>;
+};
+
+&usb {
+    status = "okay";
+};
+
+&sd0 {
+    status = "okay";
+};
+
+&sd1 {
+    status = "okay";
+};
+
+
