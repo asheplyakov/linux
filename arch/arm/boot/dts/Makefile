@@ -224,6 +224,12 @@ dtb-$(CONFIG_ARCH_LPC18XX) += \
 	lpc4337-ciaa.dtb \
 	lpc4350-hitex-eval.dtb \
 	lpc4357-ea4357-devkit.dtb
+dtb-$(CONFIG_ARCH_MCOM02) += \
+	vm-014-01.dtb \
+	vm-014-01-old.dtb \
+	mcom02-salute-el24d1-r1.3.dtb \
+	mcom02-salute-el24d1-r1.4.dtb \
+	mcom02-salute-el24d1-r1.5.dtb
 dtb-$(CONFIG_ARCH_LPC32XX) += \
 	ea3250.dtb phy3250.dtb
 dtb-$(CONFIG_MACH_MESON6) += \
