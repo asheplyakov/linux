@@ -1,0 +1,2 @@
+[vm014]
+vm014 ansible_user=root board_dtb=vm-014-01.dtb

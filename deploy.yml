@@ -1,0 +1,72 @@
+---
+
+- hosts: vm014
+  tasks:
+    - name: figure out kernel version
+      command: >
+        cpp -E -x c -I. -
+      args:
+        stdin: |
+          #include "include/generated/utsrelease.h"
+          UTS_RELEASE
+      register: kernel_version_out
+      delegate_to: localhost
+    - set_fact:
+        kernel_version: "{{ kernel_version_out.stdout_lines[-1]|regex_replace('\"', '') }}"
+    - debug: var=kernel_version
+    - set_fact:
+        kernel_tarball: "linux-{{ kernel_version }}-armhf-vm014.tgz"
+    - debug: var=kernel_tarball
+    - name: make kernel tarball
+      command: >
+        fakeroot
+        tar czvf {{ kernel_tarball }} -C _inst
+        boot/vmlinuz-{{ kernel_version }}
+        boot/config-{{ kernel_version }}
+        boot/System.map-{{ kernel_version }}
+        boot/dtbs/{{ kernel_version }}
+        lib/modules/{{ kernel_version }}
+      delegate_to: localhost
+    - name: unpack kernel tarball
+      unarchive:
+        src: "{{ kernel_tarball }}"
+        dest: "/"
+      become: true
+    - name: run depmod
+      command: >
+        depmod -a "{{ kernel_version }}"
+      become: true
+
+    - name: check if DTB needs update
+      command: >
+        cmp -s /boot/{{ board_dtb }} /boot/dtbs/{{ kernel_version }}/{{ board_dtb }}
+      register: dtb_compare_result
+      when: board_dtb is defined
+      become: true
+      failed_when: False
+      changed_when: dtb_compare_result.rc != 0
+    - name: copy DTB file into /boot
+      command: >
+        cp -alf /boot/dtbs/{{ kernel_version }}/{{ board_dtb }} /boot
+      when:
+        - board_dtb is defined
+        - dtb_compare_result.rc != 0
+      become: true
+
+    - name: check if vmlinuz needs update
+      command: >
+        cmp -s /boot/vmlinuz /boot/vmlinuz-{{ kernel_version }}
+      register: vmlinuz_compare_result
+      become: true
+      failed_when: False
+      changed_when: vmlinuz_compare_result.rc != 0
+    - name: update vmlinuz
+      command: >
+        cp -alf /boot/vmlinuz-{{ kernel_version }} /boot/vmlinuz
+      become: true
+      when: vmlinuz_compare_result.rc != 0
+
+    - name: register kernel with installkernel
+      command: >
+        /sbin/installkernel --nodefault --noflavour --keep-initrd "{{ kernel_version }}"
+      become: true
