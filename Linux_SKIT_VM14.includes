@@ -1,0 +1,3 @@
+include
+arch/arm/include
+arch/arm/mach-mcom02
