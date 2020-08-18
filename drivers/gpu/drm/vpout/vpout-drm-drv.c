@@ -449,3 +449,4 @@ module_exit(vpout_drm_fini);
 MODULE_AUTHOR("Alexey Kiselev <akiselev@elvees.com");
 MODULE_DESCRIPTION("ELVEES VPOUT Controller DRM Driver");
 MODULE_LICENSE("GPL");
+MODULE_SOFTDEP("pre: adv7511");
