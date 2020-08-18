@@ -90,10 +90,23 @@ int component_master_add_child(struct master *master,
 	struct component *c;
 	int ret = -ENXIO;
 
-	list_for_each_entry(c, &component_list, node) {
-		if (c->master && c->master != master)
-			continue;
+    dev_info(master->dev, "%s: trying to add components\n", __func__);
+    dev_info(master->dev, "%s: compare = %pf, data = %p\n",
+             __func__,
+             compare,
+             compare_data);
 
+	list_for_each_entry(c, &component_list, node) {
+        dev_info(c->dev, "considering component\n");
+        if (c->master && c->master != master) {
+            dev_info(c->master->dev, "component belongs to different master\n");
+			continue;
+        }
+
+        dev_info(master->dev, "%s: calling %pf with data %p\n",
+                 __func__,
+                 compare,
+                 compare_data);
 		if (compare(c->dev, compare_data)) {
 			if (!c->master)
 				component_attach_master(master, c);
@@ -159,8 +172,11 @@ static int try_to_bring_up_master(struct master *master,
 {
 	int ret;
 
-	if (master->bound)
+    dev_info(master->dev, "%s: enter\n", __func__);
+    if (master->bound) {
+        dev_info(master->dev, "already bound\n");
 		return 0;
+    }
 
 	/*
 	 * Search the list of components, looking for components that
@@ -168,11 +184,13 @@ static int try_to_bring_up_master(struct master *master,
 	 */
 	if (find_components(master)) {
 		/* Failed to find all components */
+        dev_info(master->dev, "failed to find all components, ignoring\n");
 		ret = 0;
 		goto out;
 	}
 
 	if (component && component->master != master) {
+        dev_info(component->dev, "belongs to a different master, ignoring\n");
 		ret = 0;
 		goto out;
 	}
@@ -194,6 +212,7 @@ static int try_to_bring_up_master(struct master *master,
 	return 1;
 
 out:
+    dev_info(master->dev, "bailing out with error %d\n", ret);
 	master_remove_components(master);
 
 	return ret;
@@ -470,7 +489,7 @@ int component_add(struct device *dev, const struct component_ops *ops)
 	component->ops = ops;
 	component->dev = dev;
 
-	dev_dbg(dev, "adding component (ops %ps)\n", ops);
+    dev_info(dev, "adding component (ops %ps)\n", ops);
 
 	mutex_lock(&component_mutex);
 	list_add_tail(&component->node, &component_list);

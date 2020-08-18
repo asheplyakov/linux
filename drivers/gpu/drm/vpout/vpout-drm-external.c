@@ -109,8 +109,8 @@ insert_proxy(struct drm_device *drm_dev, struct drm_connector *connector)
 	drm_connector_helper_add(connector, proxy_funcs);
 	priv->num_slaves++;
 
-	dev_dbg(dev, "External encoder '%s' connected\n",
-		connector->encoder->name);
+	dev_info(dev, "External encoder '%s' connected\n",
+		 connector->encoder->name);
 
 	return 0;
 }
@@ -151,6 +151,11 @@ void vpout_drm_remove_external_encoders(struct drm_device *drm_dev)
 static int dev_match_of(struct device *dev, void *data)
 {
 	bool matched = dev->of_node == data;
+	dev_info(dev, "%s: of_node = %s, data = %s, matched=%d\n",
+		 __func__,
+		 dev->of_node ? dev->of_node->full_name : "(null)",
+		 data ? ((struct device_node *)data)->full_name : "(null)",
+		 (int)matched);
 
 	if (matched)
 		vpout_drm_link_endpoint(dev);
@@ -166,6 +171,7 @@ int vpout_drm_get_external_components(struct device *dev,
 
 	while ((ep = of_graph_get_next_endpoint(dev->of_node, ep))) {
 		struct device_node *node;
+        dev_info(dev, "%s: considering endpoint %s\n", __func__, ep->full_name);
 
 		node = of_graph_get_remote_port_parent(ep);
 		if (!node || !of_device_is_available(node)) {
@@ -173,7 +179,7 @@ int vpout_drm_get_external_components(struct device *dev,
 			continue;
 		}
 
-		dev_dbg(dev, "Subdevice node '%s' found\n", node->name);
+        dev_info(dev, "%s: subdevice node '%s' found\n", __func__, node->full_name);
 		if (match)
 			component_match_add(dev, match, dev_match_of, node);
 		of_node_put(node);

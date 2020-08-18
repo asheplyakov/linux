@@ -158,12 +158,14 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 	priv->crtc = vpout_drm_crtc_create(drm_dev);
 
 	if (!priv->crtc) {
+        dev_err(dev, "failed to create CRTC\n");
 		ret = -ENXIO;
 		goto fail_mode_config_cleanup;
 	}
 
 	port = get_crtc_port(dev);
 	if (!port) {
+		dev_err(dev, "failed to find out CRTC port\n");
 		ret = -ENXIO;
 		goto fail_mode_config_cleanup;
 	}
@@ -364,6 +366,7 @@ static struct drm_driver vpout_drm_driver = {
 
 static int vpout_drm_bind(struct device *dev)
 {
+	dev_info(dev, "vpout_drm_bind: enter\n");
 	return drm_platform_init(&vpout_drm_driver, to_platform_device(dev));
 }
 
@@ -383,21 +386,27 @@ static int vpout_drm_probe(struct platform_device *plat_dev)
 	int count;
 	int ret;
 
+	dev_info(&plat_dev->dev, "vpout_drm_probe: enter\n");
+
 	if (!plat_dev->dev.of_node) {
 		dev_err(&plat_dev->dev, "device-tree data is missing\n");
 		return -ENXIO;
 	}
 
 	count = vpout_drm_get_external_components(&plat_dev->dev, &match);
-	if (count < 0)
+	if (count < 0) {
+		dev_err(&plat_dev->dev, "no external components have been found\n");
 		return count;
+	}
 
 	ret = vpout_drm_link_init(count);
 	if (ret)
 		return ret;
 
-	return component_master_add_with_match(&plat_dev->dev,
+    ret = component_master_add_with_match(&plat_dev->dev,
 					       &vpout_drm_comp_ops, match);
+    dev_info(&plat_dev->dev, "component_master_add_with_match retured %d\n", ret);
+    return ret;
 }
 
 static int vpout_drm_remove(struct platform_device *plat_dev)

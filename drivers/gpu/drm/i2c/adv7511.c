@@ -908,6 +908,7 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	unsigned int val;
 	int ret;
 
+    dev_info(dev, "probing\n");
 	if (!dev->of_node)
 		return -EINVAL;
 
@@ -919,16 +920,20 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	adv7511->status = connector_status_disconnected;
 
 	ret = adv7511_parse_dt(dev->of_node, &link_config);
-	if (ret)
+    if (ret) {
+        dev_err(dev, "invalid FDT, err=%d\n", ret);
 		return ret;
+    }
 
 	/*
 	 * The power down GPIO is optional. If present, toggle it from active to
 	 * inactive to wake up the encoder.
 	 */
 	adv7511->gpio_pd = devm_gpiod_get_optional(dev, "pd", GPIOD_OUT_HIGH);
-	if (IS_ERR(adv7511->gpio_pd))
+    if (IS_ERR(adv7511->gpio_pd)) {
+        dev_err(dev, "failed to find powerdown GPIO: %ld\n", PTR_ERR(adv7511->gpio_pd));
 		return PTR_ERR(adv7511->gpio_pd);
+    }
 
 	if (adv7511->gpio_pd) {
 		mdelay(5);
@@ -936,18 +941,24 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	}
 
 	adv7511->regmap = devm_regmap_init_i2c(i2c, &adv7511_regmap_config);
-	if (IS_ERR(adv7511->regmap))
+    if (IS_ERR(adv7511->regmap)) {
+        dev_err(dev, "failed to initialize regmap: %ld\n", PTR_ERR(adv7511->regmap));
 		return PTR_ERR(adv7511->regmap);
+    }
 
 	ret = regmap_read(adv7511->regmap, ADV7511_REG_CHIP_REVISION, &val);
-	if (ret)
+    if (ret) {
+        dev_err(dev, "regmap_read failed: %d\n", ret);
 		return ret;
-	dev_dbg(dev, "Rev. %d\n", val);
+    }
+    dev_info(dev, "Rev. %d\n", val);
 
 	ret = regmap_register_patch(adv7511->regmap, adv7511_fixed_registers,
 				    ARRAY_SIZE(adv7511_fixed_registers));
-	if (ret)
+    if (ret) {
+        dev_err(dev, "regmap_register_patch failed: %d\n", ret);
 		return ret;
+    }
 
 	regmap_write(adv7511->regmap, ADV7511_REG_EDID_I2C_ADDR, edid_i2c_addr);
 	regmap_write(adv7511->regmap, ADV7511_REG_PACKET_I2C_ADDR,
@@ -957,8 +968,10 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 
 	adv7511->i2c_main = i2c;
 	adv7511->i2c_edid = i2c_new_dummy(i2c->adapter, edid_i2c_addr >> 1);
-	if (!adv7511->i2c_edid)
+    if (!adv7511->i2c_edid) {
+        dev_err(dev, "failed to allocate i2c_edid\n");
 		return -ENOMEM;
+    }
 
 	INIT_WORK(&adv7511->hpd_work, adv7511_hpd_work);
 
@@ -969,8 +982,10 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 						adv7511_irq_handler,
 						IRQF_ONESHOT, dev_name(dev),
 						adv7511);
-		if (ret)
+        if (ret) {
+            dev_err(dev, "failed to request IRQ: %d\n", ret);
 			goto err_i2c_unregister_device;
+        }
 	}
 
 	/* CEC is unused for now */
@@ -983,6 +998,7 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 
 	adv7511_set_link_config(adv7511, &link_config);
 
+    dev_info(dev, "successfully probed\n");
 	return 0;
 
 err_i2c_unregister_device:
