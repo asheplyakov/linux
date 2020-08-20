@@ -21,8 +21,12 @@
  */
 
 #include <linux/component.h>
+#include <linux/of_graph.h>
+#include <linux/property.h>
 #include <linux/types.h>
 
+#include <drm/drm_of.h>
+#include <drm/drm_panel.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 
@@ -104,6 +108,78 @@ uint vpout_drm_get_preferred_bpp(struct drm_device *drm_dev)
 	mutex_unlock(&drm_dev->mode_config.mutex);
 
 	return bpp;
+}
+
+static struct device_node *of_graph_get_remote_node(const struct device_node *node,
+						    u32 port, u32 endpoint)
+{
+	struct device_node *endpoint_node, *remote;
+
+	endpoint_node = of_graph_get_endpoint_by_regs(node, port, endpoint);
+	if (!endpoint_node) {
+		pr_debug("no valid endpoint (%d, %d) for node %s\n",
+			 port, endpoint, node->full_name);
+		return NULL;
+	}
+
+	remote = of_graph_get_remote_port_parent(endpoint_node);
+	of_node_put(endpoint_node);
+	if (!remote) {
+		pr_debug("no valid remote node\n");
+		return NULL;
+	}
+
+	if (!of_device_is_available(remote)) {
+		pr_debug("not available for remote node\n");
+		return NULL;
+	}
+
+	return remote;
+}
+
+static int drm_of_find_panel_or_bridge(const struct device_node *np,
+				       int port, int endpoint,
+				       struct drm_panel **panel,
+				       struct drm_bridge **bridge)
+{
+	int ret = -EPROBE_DEFER;
+	struct device_node *remote;
+
+	if (!panel && !bridge)
+		return -EINVAL;
+	if (panel)
+		*panel = NULL;
+
+	remote = of_graph_get_remote_node(np, port, endpoint);
+	if (!remote)
+		return -ENODEV;
+
+	if (!of_device_is_available(remote)) {
+		of_node_put(remote);
+		return -ENODEV;
+	}
+
+	if (panel) {
+		*panel = of_drm_find_panel(remote);
+		if (!IS_ERR(*panel))
+			ret = 0;
+		else
+			*panel = NULL;
+	}
+
+	/* No panel found yet, check for a bridge next */
+	if (bridge) {
+		if (ret) {
+			*bridge = of_drm_find_bridge(remote);
+			if (*bridge)
+				ret = 0;
+		} else {
+			*bridge = NULL;
+		}
+	}
+
+	of_node_put(remote);
+	return ret;
 }
 
 /*
