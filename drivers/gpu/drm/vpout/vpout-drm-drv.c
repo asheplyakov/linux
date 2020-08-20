@@ -182,6 +182,10 @@ static int drm_of_find_panel_or_bridge(const struct device_node *np,
 	return ret;
 }
 
+static const struct drm_encoder_funcs vpout_dummy_encoder_funcs = {
+	.destroy = drm_encoder_cleanup,
+};
+
 /*
  * DRM operations:
  */
@@ -257,6 +261,39 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 
 	platform_set_drvdata(plat_dev, drm_dev);
 
+	ret = drm_of_find_panel_or_bridge(drm_dev->dev->of_node, -1, -1,
+					  NULL,
+					  &priv->bridge);
+
+	if (ret == -EPROBE_DEFER) {
+		dev_info(drm_dev->dev, "bridge probe deferred\n");
+		goto fail_mode_config_cleanup;
+	}
+
+	if (priv->bridge) {
+		struct drm_encoder *encoder = &priv->encoder;
+		ret = drm_encoder_init(drm_dev,
+				       encoder,
+				       &vpout_dummy_encoder_funcs,
+				       DRM_MODE_ENCODER_NONE);
+		if (ret) {
+			dev_err(drm_dev->dev, "failed to initialize encoder\n");
+			goto fail_mode_config_cleanup;
+		}
+
+		encoder->crtc = priv->crtc;
+		encoder->possible_crtcs = BIT(drm_crtc_index(encoder->crtc));
+
+		priv->bridge->encoder = encoder;
+		dev_info(drm_dev->dev, "attaching DRM bridge\n");
+		ret = drm_bridge_attach(drm_dev, priv->bridge);
+		if (ret) {
+			dev_err(drm_dev->dev, "failed to attach DRM bridge\n");
+			goto fail_mode_config_cleanup;
+		}
+		goto do_vblank_init;
+	}
+
 	/*
 	 * Now we enum all slave device. In this time
 	 * they all present in system and probed.
@@ -293,6 +330,7 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		goto fail_external_cleanup;
 	}
 
+do_vblank_init:
 	ret = drm_vblank_init(drm_dev, 1);
 	if (ret < 0) {
 		dev_err(dev, "failed to initialize vblank\n");
@@ -479,10 +517,18 @@ static int vpout_drm_probe(struct platform_device *plat_dev)
 	if (ret)
 		return ret;
 
-    ret = component_master_add_with_match(&plat_dev->dev,
-					       &vpout_drm_comp_ops, match);
-    dev_info(&plat_dev->dev, "component_master_add_with_match retured %d\n", ret);
-    return ret;
+	if (count == 1) {
+		ret = vpout_drm_bind(&plat_dev->dev);
+		if (ret) {
+			dev_err(&plat_dev->dev, "vpout_drm_bind returned %d\n", ret);
+		}
+	} else {
+
+		ret = component_master_add_with_match(&plat_dev->dev,
+						      &vpout_drm_comp_ops, match);
+		dev_info(&plat_dev->dev, "component_master_add_with_match retured %d\n", ret);
+	}
+	return ret;
 }
 
 static int vpout_drm_remove(struct platform_device *plat_dev)

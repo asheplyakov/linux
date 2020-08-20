@@ -48,6 +48,8 @@ struct vpout_drm_private {
 
 	int num_slaves;
 	struct connector_proxy slaves[8];
+	struct drm_encoder encoder;
+	struct drm_bridge *bridge;
 };
 
 int vpout_drm_crtc_mode_valid(struct drm_crtc *crtc,
