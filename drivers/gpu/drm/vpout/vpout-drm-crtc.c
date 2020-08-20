@@ -190,6 +190,11 @@ static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
 	if (ret != MODE_OK)
 		return ret;
 
+	vpout_drm_write(dev, LCDC_CSR, LCDC_CSR_EN);
+	vpout_drm_write(dev, LCDC_CSR, LCDC_CSR_EN | LCDC_CSR_CLR);
+	while(vpout_drm_read(dev, LCDC_CSR) & LCDC_CSR_CLR)
+		cpu_relax();
+
 	hbp = mode->htotal - mode->hsync_end;
 	hsw = mode->hsync_end - mode->hsync_start;
 	vbp = mode->vtotal - mode->vsync_end;
