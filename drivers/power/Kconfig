@@ -250,6 +250,19 @@ config BATTERY_MAX17042
 	  with MAX17042. This driver also supports max17047/50 chips which are
 	  improved version of max17042.
 
+config BATTERY_MAX1720x
+	tristate "Maxim MAX17201/MAX17205/MAX17211/MAX17215 Fuel Gauge"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  he  MAX1720x/MAX1721x  are  ultra-low  power  stand-alone  
+	  fuel  gauge  ICs  that  implement  the  Maxim  ModelGauge™
+	  m5  algorithm  without  requiring  host  interaction  for  
+	  configuration. This feature makes the MAX1720x/MAX1721x 
+	  excellent pack-side fuel gauges. The MAX17201/MAX17211 monitor 
+	  a single cell pack. The MAX17205/MAX17215 monitor and balance 
+	  a 2S or 3S pack or monitor a multiple-series cell pack.
+
 config BATTERY_Z2
 	tristate "Z2 battery driver"
 	depends on I2C && MACH_ZIPIT2
