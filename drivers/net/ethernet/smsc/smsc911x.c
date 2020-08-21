@@ -149,6 +149,10 @@ struct smsc911x_data {
 	/* regulators */
 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
 
+	/* reset signal */
+    int reset_gpio;
+
+
 	/* clock */
 	struct clk *clk;
 };
@@ -2186,6 +2190,14 @@ static int smsc911x_init(struct net_device *dev)
 		return -ENODEV;
 	}
 
+	/* toggle reset gpio */
+	if(gpio_is_valid(pdata->reset_gpio))
+	{
+			gpio_set_value(pdata->reset_gpio, 0);
+			mdelay(1);
+			gpio_set_value(pdata->reset_gpio, 1);
+	}
+
 	/*
 	 * poll the READY bit in PMT_CTRL. Any other access to the device is
 	 * forbidden while this bit isn't set. Try for 100ms
@@ -2404,6 +2416,7 @@ static int smsc911x_probe_config(struct smsc911x_platform_config *config,
 
 static int smsc911x_drv_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	struct net_device *dev;
 	struct smsc911x_data *pdata;
 	struct smsc911x_platform_config *config = dev_get_platdata(&pdev->dev);
@@ -2411,6 +2424,7 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
 	unsigned int intcfg = 0;
 	int res_size, irq, irq_flags;
 	int retval;
+	enum of_gpio_flags reset_flags;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "smsc911x-memory");
@@ -2468,6 +2482,25 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
 		SMSC_WARN(pdata, probe, "Error smsc911x base address invalid");
 		retval = -ENOMEM;
 		goto out_disable_resources;
+	}
+
+	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios", 0, &reset_flags);
+	if(gpio_is_valid(pdata->reset_gpio))
+	{
+		if(devm_gpio_request(&pdev->dev, pdata->reset_gpio, "smsc911x_reset") < 0)
+		{
+				SMSC_WARN(pdata, probe, "Failed to request reset-gpio!");
+				goto out_disable_resources;
+		}
+
+		if(gpio_direction_output(pdata->reset_gpio, 1) < 0)
+		{
+				SMSC_WARN(pdata, probe, "Failed to set reset-gpio as output!");
+				goto out_disable_resources;
+		}
+
+	} else {
+			SMSC_WARN(pdata, probe, "No reset pin specified.");
 	}
 
 	retval = smsc911x_probe_config(&pdata->config, &pdev->dev);
