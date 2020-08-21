@@ -1048,6 +1048,9 @@ int serial8250_register_8250_port(struct uart_8250_port *up)
 
 			ret = 0;
 		}
+
+		uart->rts_gpio = up->rts_gpio;
+		uart->gpios = up->gpios;
 	}
 	mutex_unlock(&serial_mutex);
 

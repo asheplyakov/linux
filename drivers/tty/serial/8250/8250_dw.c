@@ -28,6 +28,8 @@
 #include <linux/clk.h>
 #include <linux/reset.h>
 #include <linux/pm_runtime.h>
+#include <linux/gpio.h>
+#include "../serial_mctrl_gpio.h"
 
 #include <asm/byteorder.h>
 
@@ -63,7 +65,6 @@ struct dw8250_data {
 	struct clk		*clk;
 	struct clk		*pclk;
 	struct reset_control	*rst;
-	struct gpio_desc	*rts_gpio;
 	struct uart_8250_dma	dma;
 
 	unsigned int		skip_autocfg:1;
@@ -97,14 +98,6 @@ static void dw8250_force_idle(struct uart_port *p)
 	(void)p->serial_in(p, UART_RX);
 }
 
-static inline void dw8250_rts(struct uart_port *p, int value)
-{
-	struct dw8250_data *data = (struct dw8250_data *)p->private_data;
-
-	if (data->rts_gpio)
-		gpiod_set_value(data->rts_gpio, value & UART_MCR_RTS);
-}
-
 static void dw8250_serial_out(struct uart_port *p, int offset, int value)
 {
 	writeb(value, p->membase + (offset << p->regshift));
@@ -123,8 +116,7 @@ static void dw8250_serial_out(struct uart_port *p, int offset, int value)
 		 * FIXME: this deadlocks if port->lock is already held
 		 * dev_err(p->dev, "Couldn't set LCR to %d\n", value);
 		 */
-	} else if (offset == UART_MCR)
-		dw8250_rts(p, value);
+	} 
 }
 
 static unsigned int dw8250_serial_in(struct uart_port *p, int offset)
@@ -166,8 +158,7 @@ static void dw8250_serial_outq(struct uart_port *p, int offset, int value)
 		 * FIXME: this deadlocks if port->lock is already held
 		 * dev_err(p->dev, "Couldn't set LCR to %d\n", value);
 		 */
-	} else if (offset == UART_MCR)
-		dw8250_rts(p, value);
+	} 
 }
 #endif /* CONFIG_64BIT */
 
@@ -189,8 +180,7 @@ static void dw8250_serial_out32(struct uart_port *p, int offset, int value)
 		 * FIXME: this deadlocks if port->lock is already held
 		 * dev_err(p->dev, "Couldn't set LCR to %d\n", value);
 		 */
-	} else if (offset == UART_MCR)
-		dw8250_rts(p, value);
+	} 
 }
 
 static unsigned int dw8250_serial_in32(struct uart_port *p, int offset)
@@ -348,7 +338,66 @@ static void dw8250_setup_port(struct uart_port *p)
 static int dw8250_rs485_config(struct uart_port *port,
 			       struct serial_rs485 *rs485)
 {
+	struct uart_8250_port *up = up_to_u8250p(port);
+	int val;
+
 	port->rs485 = *rs485;
+
+	/*
+	 * Just as a precaution, only allow rs485
+	 * to be enabled if the gpio pin is valid
+	 */
+	if (gpio_is_valid(up->rts_gpio)) {
+		/* enable / disable rts */
+		val = (port->rs485.flags & SER_RS485_ENABLED) ?
+			SER_RS485_RTS_AFTER_SEND : SER_RS485_RTS_ON_SEND;
+		val = (port->rs485.flags & val) ? 1 : 0;
+		gpio_set_value(up->rts_gpio, val);
+	} else
+		port->rs485.flags &= ~SER_RS485_ENABLED;
+
+	return 0;
+}
+
+static int serial_dw8250_probe_rs485(struct uart_8250_port *up,
+				   struct device *dev)
+{
+	struct serial_rs485 *rs485conf = &up->port.rs485;
+	u32 rs485_delay[2];
+
+	rs485conf->flags = 0;
+	up->rts_gpio = -EINVAL;
+
+	if (!dev)
+		return 0;
+
+	if (up->gpios)
+	{
+		struct gpio_desc *rts_desc = mctrl_gpio_to_gpiod(up->gpios, UART_GPIO_RTS);
+		if(rts_desc)
+			up->rts_gpio = desc_to_gpio(rts_desc);
+	}
+
+	if (device_property_read_bool(dev, "rs485-rts-active-high"))
+		rs485conf->flags |= SER_RS485_RTS_ON_SEND;
+	else
+		rs485conf->flags |= SER_RS485_RTS_AFTER_SEND;
+
+	if (device_property_read_u32_array(dev, "rs485-rts-delay",
+					rs485_delay, 2) == 0) {
+		rs485conf->delay_rts_before_send = rs485_delay[0];
+		rs485conf->delay_rts_after_send = rs485_delay[1];
+	}
+
+	if (device_property_read_bool(dev, "rs485-rx-during-tx"))
+		rs485conf->flags |= SER_RS485_RX_DURING_TX;
+
+	if (device_property_read_bool(dev, "linux,rs485-enabled-at-boot-time"))
+	{
+		rs485conf->flags |= SER_RS485_ENABLED;
+		up->port.rs485_config(&up->port, rs485conf);
+		printk(KERN_INFO "%s: RS-485 mode enabled at boot time.\n", dev_name(dev));
+	}
 
 	return 0;
 }
@@ -437,8 +486,14 @@ static int dw8250_probe(struct platform_device *pdev)
 		data->msr_mask_off |= UART_MSR_TERI;
 	}
 
-	data->rts_gpio = devm_gpiod_get_optional(p->dev, "rts", GPIOD_OUT_LOW);
+	uart.gpios = mctrl_gpio_init(p, 0);
+	if (IS_ERR(uart.gpios))
+		return PTR_ERR(uart.gpios);
 
+	err = serial_dw8250_probe_rs485(&uart, p->dev);
+	if(err < 0)
+		return err;
+	
 	/* Always ask for fixed clock rate from a property. */
 	device_property_read_u32(p->dev, "clock-frequency", &p->uartclk);
 

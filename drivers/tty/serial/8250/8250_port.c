@@ -37,6 +37,8 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/pm_runtime.h>
+#include <linux/gpio.h>
+#include "../serial_mctrl_gpio.h"
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -1282,10 +1284,54 @@ static void autoconfig_irq(struct uart_8250_port *up)
 
 static inline void __stop_tx(struct uart_8250_port *p)
 {
+	int res;
+	int timeout = 0;
+
+	/* Handle RS-485 */
+	if (p->port.rs485.flags & SER_RS485_ENABLED) {
+		/* Waiting for TX FIFO and shift register 
+		 * becomes empty and switch off the transmitter */
+		for(;;)
+		{
+			udelay(10);
+			timeout++;
+			if(serial_in(p, UART_LSR) & UART_LSR_TEMT)
+			{
+				res = (p->port.rs485.flags & SER_RS485_RTS_AFTER_SEND) ?
+					1 : 0;
+				if (gpio_get_value(p->rts_gpio) != res) {
+					if (p->port.rs485.delay_rts_after_send > 0)
+						mdelay(p->port.rs485.delay_rts_after_send);
+					gpio_set_value(p->rts_gpio, res);
+				}
+				break;
+			}
+
+			if(timeout >= 1000)
+			{
+				printk(KERN_WARNING KBUILD_MODNAME": timeout expired while waiting for FIFO and shift register empty!\n");
+				break;
+			}
+		}
+	}
+
 	if (p->ier & UART_IER_THRI) {
 		p->ier &= ~UART_IER_THRI;
 		serial_out(p, UART_IER, p->ier);
 		serial8250_rpm_put_tx(p);
+	}
+
+	if ((p->port.rs485.flags & SER_RS485_ENABLED) &&
+	    !(p->port.rs485.flags & SER_RS485_RX_DURING_TX)) {
+		/*
+		 * Empty the RX FIFO, we are not interested in anything
+		 * received during the half-duplex transmission.
+		 */
+		serial_out(p, UART_FCR, p->fcr | UART_FCR_CLEAR_RCVR);
+		/* Re-enable RX interrupts */
+		p->ier |= UART_IER_RLSI | UART_IER_RDI;
+		p->port.read_status_mask |= UART_LSR_DR;
+		serial_out(p, UART_IER, p->ier);
 	}
 }
 
@@ -1306,14 +1352,43 @@ static void serial8250_stop_tx(struct uart_port *port)
 	serial8250_rpm_put(up);
 }
 
+static void serial8250_stop_rx(struct uart_port *port)
+{
+	struct uart_8250_port *up = up_to_u8250p(port);
+
+	serial8250_rpm_get(up);
+
+	up->ier &= ~(UART_IER_RLSI | UART_IER_RDI);
+	up->port.read_status_mask &= ~UART_LSR_DR;
+	serial_port_out(port, UART_IER, up->ier);
+
+	serial8250_rpm_put(up);
+}
+
 static void serial8250_start_tx(struct uart_port *port)
 {
+	int res;
 	struct uart_8250_port *up = up_to_u8250p(port);
 
 	serial8250_rpm_get_tx(up);
 
 	if (up->dma && !up->dma->tx_dma(up))
 		return;
+
+	/* Handle RS-485 */
+	if (port->rs485.flags & SER_RS485_ENABLED) {
+		/* if rts not already enabled */
+		res = (port->rs485.flags & SER_RS485_RTS_ON_SEND) ? 1 : 0;
+		if (gpio_get_value(up->rts_gpio) != res) {
+			gpio_set_value(up->rts_gpio, res);
+			if (port->rs485.delay_rts_before_send > 0)
+				mdelay(port->rs485.delay_rts_before_send);
+		}
+	}
+
+	if ((port->rs485.flags & SER_RS485_ENABLED) &&
+	    !(port->rs485.flags & SER_RS485_RX_DURING_TX))
+		serial8250_stop_rx(port);
 
 	if (!(up->ier & UART_IER_THRI)) {
 		up->ier |= UART_IER_THRI;
@@ -1345,19 +1420,6 @@ static void serial8250_throttle(struct uart_port *port)
 static void serial8250_unthrottle(struct uart_port *port)
 {
 	port->unthrottle(port);
-}
-
-static void serial8250_stop_rx(struct uart_port *port)
-{
-	struct uart_8250_port *up = up_to_u8250p(port);
-
-	serial8250_rpm_get(up);
-
-	up->ier &= ~(UART_IER_RLSI | UART_IER_RDI);
-	up->port.read_status_mask &= ~UART_LSR_DR;
-	serial_port_out(port, UART_IER, up->ier);
-
-	serial8250_rpm_put(up);
 }
 
 static void serial8250_disable_ms(struct uart_port *port)
@@ -1656,6 +1718,10 @@ static unsigned int serial8250_get_mctrl(struct uart_port *port)
 		ret |= TIOCM_DSR;
 	if (status & UART_MSR_CTS)
 		ret |= TIOCM_CTS;
+
+	if(up->gpios && !(port->rs485.flags & SER_RS485_ENABLED))
+		ret = mctrl_gpio_get(up->gpios, &ret);
+
 	return ret;
 }
 
@@ -1676,6 +1742,9 @@ void serial8250_do_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		mcr |= UART_MCR_LOOP;
 
 	mcr = (mcr & up->mcr_mask) | up->mcr_force | up->mcr;
+
+	if(up->gpios && !(port->rs485.flags & SER_RS485_ENABLED))
+		mctrl_gpio_set(up->gpios, mctrl);
 
 	serial_port_out(port, UART_MCR, mcr);
 }
