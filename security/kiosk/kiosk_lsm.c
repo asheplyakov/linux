@@ -273,7 +273,7 @@ static struct genl_family genl_kiosk_family = {
 };
 
 /* Hooks */
-static int kiosk_bprm_set_creds(struct linux_binprm *bprm)
+static int kiosk_bprm_check_security(struct linux_binprm *bprm)
 {
 	uid_t cur_uid = __kuid_val(bprm->cred->uid);
 	struct kiosk_list_struct *node;
@@ -283,7 +283,7 @@ static int kiosk_bprm_set_creds(struct linux_binprm *bprm)
 
 	if (cur_uid >= 500) {
 		bprm->secureexec = 1;
-		if (bprm->called_set_creds)
+		if (bprm->executable != bprm->interpreter)
 			return 0;
 
 		if (cur_uid == __kuid_val(bprm->file->f_inode->i_uid) ||
@@ -311,7 +311,7 @@ static int kiosk_bprm_set_creds(struct linux_binprm *bprm)
 }
 
 static struct security_hook_list kiosk_hooks[] = {
-	LSM_HOOK_INIT(bprm_set_creds, kiosk_bprm_set_creds),
+	LSM_HOOK_INIT(bprm_check_security, kiosk_bprm_check_security),
 };
 
 static int __init kiosk_init(void)
