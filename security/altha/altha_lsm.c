@@ -216,6 +216,15 @@ struct altha_readdir_callback {
 	int found;
 };
 
+int compare_paths(const struct path *path1, const struct path *path2)
+{
+	char a1[PATH_MAX];
+	char a2[PATH_MAX];
+	char* p1, *p2;
+	p1=d_path(path1,a1,PATH_MAX);
+        p2=d_path(path2,a2,PATH_MAX);
+	return strcmp(p1,p2);
+}
 
 int is_olock_dir(struct inode *inode)
 {
@@ -233,14 +242,14 @@ int is_olock_dir(struct inode *inode)
 }
 
 /* Hooks */
-static int altha_bprm_set_creds(struct linux_binprm *bprm)
+static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * fi)
 {
 	struct altha_list_struct *node;
 	/* when it's not a shebang issued script interpreter */
-	if (rstrscript_enabled && !bprm->called_set_creds) {
+	if (rstrscript_enabled && bprm->filename == bprm->interp) {
 		down_read(&interpreters_sem);
 		list_for_each_entry(node, &interpreters_list, list) {
-			if (path_equal(&bprm->file->f_path, &node->path)) {
+			if (compare_paths(&bprm->file->f_path, &node->path) == 0) {
 				uid_t cur_uid = from_kuid(bprm->cred->user_ns,
 							  bprm->cred->uid);
 				pr_notice_ratelimited
@@ -257,7 +266,7 @@ static int altha_bprm_set_creds(struct linux_binprm *bprm)
 		uid_t cur_uid = from_kuid(bprm->cred->user_ns, bprm->cred->uid);
 		down_read(&nosuid_exceptions_sem);
 		list_for_each_entry(node, &nosuid_exceptions_list, list) {
-			if (path_equal(&bprm->file->f_path, &node->path)) {
+			if (compare_paths(&bprm->file->f_path, &node->path) == 0) {
 				pr_notice_ratelimited
 				    ("AltHa/NoSUID: %s permitted to setuid from %d\n",
 				     bprm->filename, cur_uid);
@@ -291,7 +300,7 @@ static int altha_inode_unlink(struct inode *inode, struct dentry *dentry)
 /* Initialization */
 
 static struct security_hook_list altha_hooks[] = {
-	LSM_HOOK_INIT(bprm_set_creds, altha_bprm_set_creds),
+	LSM_HOOK_INIT(bprm_creds_from_file, altha_bprm_creds_from_file),
 	LSM_HOOK_INIT(inode_unlink, altha_inode_unlink),
 };
 
