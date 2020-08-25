@@ -14,10 +14,12 @@
 #include "mcom02.dtsi"
 
 / {
-	model = "Salute-EL24D1 r1.3";
+	model = "VM-014.01";
+	revision = "1.0";
 	compatible = "elvees,salute-el24d1-r1.3",
 		     "elvees,salute-el24d1",
 		     "elvees,mcom02";
+	poweroff-gpio = <&gpioc 6 GPIO_ACTIVE_HIGH>;
 
 	chosen {
 		bootargs = "console=ttyS0,115200";
@@ -25,7 +27,10 @@
 
 	aliases {
 		spi0 = &spi0;
-		spi1 = &spi1;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+        ethernet0 = &ethernet;
 	};
 
 	memory {
@@ -34,135 +39,84 @@
 		       0xa0000000 0x40000000>;
 	};
 
-	clocks {
-		can_clk: can_clk {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <16000000>;
-		};
-	};
-
 	leds {
 		compatible = "gpio-leds";
 
-		dbgled@1 {
-			label = "salute:blue:dbgled1";
-			gpios = <&gpioc 24 GPIO_ACTIVE_LOW>;
+		led@1 {
+			label = "led_act";
+			gpios = <&gpioc 9 GPIO_ACTIVE_LOW>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		dbgled@2 {
-			label = "salute:blue:dbgled2";
-			gpios = <&gpioc 31 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "mmc0";
-		};
-
-		dbgled@3 {
-			label = "salute:blue:dbgled3";
-			gpios = <&gpioc 20 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-
-		dbgled@4 {
-			label = "salute:blue:dbgled4";
-			gpios = <&gpioc 15 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-
-		dbgled@5 {
-			label = "salute:blue:dbgled5";
-			gpios = <&gpioc 18 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-
-		dbgled@6 {
-			label = "salute:blue:dbgled6";
-			gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-
-		dbgled@7 {
-			label = "salute:blue:dbgled7";
-			gpios = <&gpioc 16 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-
-		dbgled@8 {
-			label = "salute:blue:dbgled8";
-			gpios = <&gpioc 11 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
 	};
 
-	regulators {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "simple-bus";
+	xtican: xtican {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <16000000>;
+	};
+    
+    therm_18B20 {
+        compatible = "w1-gpio";
+        gpios = <&gpioc 5 GPIO_ACTIVE_LOW>;
+    };
 
-		can_xceiver_reg: regulator@0 {
-			compatible = "regulator-fixed";
-			reg = <0x0>;
-			regulator-name = "can-xceiver";
-			gpio = <&gpiob 7 0>;
-		};
+    sound {
+        compatible = "simple-audio-card";
+        simple-audio-card,name = "VM14 Com Express Analog Audio";
+        simple-audio-card,format = "i2s";
+        simple-audio-card,bitclock-master = <&dailink0_master>;
+        simple-audio-card,frame-master = <&dailink0_master>;
+
+        simple-audio-card,cpu {
+            sound-dai = <&mfbsp0>;
+        };
+
+        dailink0_master: simple-audio-card,codec {
+            sound-dai = <&acodec>;
+            system-clock-frequency = <24000000>;
+        };
+    };
+    
+    ext_supply: charger {
+		compatible = "gpio-charger";
+		charger-type = "mains";
+		gpios = <&gpioa 4 GPIO_ACTIVE_HIGH>;
 	};
 
-	sound {
-		compatible = "simple-audio-card";
-		simple-audio-card,name = "Salute-EL24D1";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,bitclock-master = <&dailink0_master>;
-		simple-audio-card,frame-master = <&dailink0_master>;
 
-		simple-audio-card,cpu {
-			sound-dai = <&mfbsp0>;
-		};
-
-		dailink0_master: simple-audio-card,codec {
-			sound-dai = <&alc5623>;
-			system-clock-frequency = <24576000>;
-		};
-	};
-
-	hdmi-out {
-		compatible = "hdmi-connector";
-		type = "a";
-
-		port {
-			hdmi_con: endpoint {
-				remote-endpoint = <&adv7511_out>;
-			};
-		};
-	};
-
-	/*
-	dummy_panel: panel0 {
+    hdmi_tx_panel: panel0 {
 		compatible = "elvees,mcom02-vpout,panel";
-		display-timings {
-                        800x480p60 {
-                                clock-frequency = <33300000>;
-                                hactive = <800>;
-                                vactive = <480>;
-                                hfront-porch = <85>;
-                                hback-porch = <85>;
-                                hsync-len = <86>;
-                                vfront-porch = <15>;
-                                vback-porch = <15>;
-                                vsync-len = <15>;
-                        };
-                };
+		
 
-		port {
-			dummy_panel_in: endpoint {
-				remote-endpoint = <&vpout_dummy_out>;
+		display-timings {
+			800x480p60 {
+				clock-frequency = <33300000>;
+				hactive = <800>;
+				vactive = <480>;
+				hfront-porch = <85>;
+				hback-porch = <85>;
+				hsync-len = <86>;
+				vfront-porch = <15>;
+				vback-porch = <15>;
+				vsync-len = <15>;
 			};
 		};
-	};
-	*/
+
+		port {
+			hdmi_tx_in: endpoint {
+				remote-endpoint = <&hdmi_tx_out>;
+			};
+		};
+	};/**/
 };
 
 &mfbsp0 {
 	status = "okay";
+};
+
+&nor_sclk_div {
+    clk-div-initial = <2>;
 };
 
 &spi0 {
@@ -178,9 +132,7 @@
 		#size-cells = <1>;
 		compatible = "jedec,spi-nor", "spi-flash";
 		reg = <0>;
-		/* The data transfer is not stable at a higher frequency. */
 		spi-max-frequency = <48000000>;
-		m25p,fast-read;
 		u-boot,dm-pre-reloc;
 
 		partition@0 {
@@ -207,56 +159,12 @@
 			label = "RootFS";
 			reg = <0x310000 0xcf0000>;
 		};
-
 	};
 
 	spidev@1 {
 		spi-max-frequency = <24000000>;
 		reg = <1>;
 		compatible = "rohm,dh2228fv";
-	};
-
-};
-
-&sd0 {
-	status = "okay";
-};
-
-&sd1 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	non-removable;
-	broken-cd;
-	bus-width = <4>;
-	max-frequency = <50000000>;
-	keep-power-in-suspend;
-	status = "okay";
-
-	wifi: wifi {
-		reg = <1>;
-		compatible = "brcm,bcm4329-fmac";
-		reg-on-gpio = <&gpiob 8 GPIO_ACTIVE_HIGH>;
-	};
-};
-
-&usb {
-	status = "okay";
-};
-
-&vinc {
-	status = "okay";
-	elvees,pixel-clock-divider = <16>;
-	elvees,pixel-clock-over-fsync;
-	ports {
-		port@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			vinc_endpoint0: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&ov2715endpoint>;
-				elvees,ifacenum = /bits/ 8 <2>;
-			};
-		};
 	};
 };
 
@@ -273,117 +181,111 @@
 	};
 };
 
-/*
-* RS-485 is used as physical layer for UART2
-*/
+&wdt {
+    status = "okay";
+};
 
-&uart2 {
+&uart1 {
 	status = "okay";
 };
 
-/*
-* RS-232 is used as physical layer for UART3
-*/
 
+/*
+ * RS-485 - 1
+ */
+&uart2 {
+	status = "okay";
+    rts-gpio = <&gpioa 31 GPIO_ACTIVE_LOW>;
+    linux,rs485-enabled-at-boot-time;
+    rs485-rts-active-high;
+};
+
+/*
+ * RS-485 - 2
+ */
 &uart3 {
 	status = "okay";
+    rts-gpio = <&gpioc 1 GPIO_ACTIVE_LOW>;
+    linux,rs485-enabled-at-boot-time;
+    rs485-rts-active-high;
 };
 
 &i2c0 {
-	/* Connected to voltage regulator */
-	status = "okay";
-};
-
-&i2c1 {
-	/* Connected to HDMI transmitter, audio and sensors */
-	status = "okay";
-	clock-frequency = <100000>;
-
-	alc5623: alc5623@1a {
-		#sound-dai-cells = <0>;
-		compatible = "realtek,alc5623";
-		reg = <0x1a>;
-	};
-
-	camera@36 {
-		compatible = "ovti,ov2715";
-		reg = <0x36>;
-		port {
-			ov2715endpoint: endpoint {
-				remote = <&vinc_endpoint0>;
-			};
-		};
+    status = "okay";
+    acodec: nau88c22@1a {
+        #sound-dai-cells = <0>;
+        compatible = "nuvoton,nau88c22";
+        clocks = <&xti24m>;
+        reg = <0x1A>;
+    };
+    
+    max17205@32 {
+		compatible  = "maxim,max17205";
+		reg         = <0x36>;
+		rsense      = <10>;      /* miliOhm */
+		talrt-min   = <(-40)>;     /* DegreeC */
+		talrt-max   = <65>;      /* DegreeC */
+		valrt-min   = <6000>;    /* mV */
+		valrt-max   = <8400>;    /* mV */
+		salrt-min   = <1>;       /* Percent */
+		salrt-max   = <99>;      /* Percent */
+		ialrt-min   = <(-7000)>; /* mA */
+		ialrt-max   = <7000>;    /* mA */
+		
+		power-supplies = <&ext_supply>;
 	};
 };
 
 &i2c2 {
-	status = "okay";
+    status = "okay";
+    
+    hdmi_tx: adv7511@3d {
+        compatible = "adi,adv7511w";
+        reset = <&gpioc 2 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpioc 2 GPIO_ACTIVE_HIGH>;
+        interrupt-parent = <&gpioa>;
+        interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
+        reg = <0x3d>;
+    };
+};
 
-	adv7511w: adv7511w@3d {
-           compatible = "adi,adv7511w";
-           reg = <0x3d>;
-           interrupt-parent = <&gpioa>;
-           interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
+&framebuffer {
+    status = "okay";
+    u-boot,dm-pre-reloc;
+    output = <&hdmi_tx>;
+};
 
-           reset = <&gpioc 2 GPIO_ACTIVE_HIGH>;
-           reset-gpios = <&gpioc 2 GPIO_ACTIVE_HIGH>;
-
-           adi,input-depth = <8>;
-           adi,input-colorspace = "rgb";
-           adi,input-clock = "1x";
-           adi,input-style = <1>;
-           adi,input-justification = "evenly";
-
-           ports {
-                   #address-cells = <1>;
-                   #size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			adv7511_in: endpoint {
-				remote-endpoint = <&vpout_hdmi_out>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-			adv7511_out: endpoint {
-				remote-endpoint = <&hdmi_con>;
-			};
-		};
-           };
-        };
+&gpioc {
+	skip-gpio-list = <2>;
 };
 
 &vpout {
 	status = "okay";
-
 	port {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		vpout_hdmi_out: endpoint@0 {
+		hdmi_tx_out: endpoint@0 {
 			reg = <0>;
-			remote-endpoint = <&adv7511_in>;
+			remote-endpoint = <&hdmi_tx_in>;
 			info {
 				label = "HDMI";
 				bpp = <32>;
 			};
 		};
-
-		/*
-		vpout_dummy_out: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&dummy_panel_in>;
-			info {
-				label = "dummy";
-				bpp = <32>;
-			};
-		};
-		*/
 	};
 };
 
-&nfc {
-	status = "okay";
+&usb {
+    status = "okay";
 };
+
+&sd0 {
+    status = "okay";
+};
+
+&sd1 {
+    status = "okay";
+};
+
+

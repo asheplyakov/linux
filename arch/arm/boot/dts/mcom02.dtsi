@@ -9,8 +9,9 @@
 #include "skeleton.dtsi"
 
 / {
-	compatible = "elvees,mcom02";
+	compatible = "elvees,mcom";
 	interrupt-parent = <&gic>;
+	u-boot,dm-pre-reloc;
 
 	aliases {
 		ethernet0 = &ethernet;
@@ -150,7 +151,7 @@
 		clock-names = "timer";
 	};
 
-	watchdog@38031000 {
+	wdt: watchdog@38031000 {
 		compatible = "snps,dw-wdt";
 		reg = <0x38031000 0x1000>;
 		interrupts = <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>;
@@ -419,9 +420,11 @@
 	/* This node is used by the vpout-drm driver. */
 	vpout: vpout@38004000 {
 		compatible = "elvees,mcom02-vpout";
-		reg = <0x38004000 0x1000>;
+		reg = <0x38004000 0x1000>, <0x38005000 0x1000>;
+		reg-names = "lcd", "dsi";
 		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&vpout_aclk>;
+		smctr = <&smctr>;
 		status = "disabled";
 	};
 
@@ -429,12 +432,15 @@
 	framebuffer: framebuffer@38004000 {
 		compatible = "elvees,vpoutfb";
 		reg = <0x38004000 0x1000>;
+		width = <1280>;
+		height = <720>;
 		/* We have to pad out color to 32 bits because 24 bit color is
 		 * not supported by the Mali driver */
 		format = "x8r8g8b8";
 		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&vpout_hclk>, <&vpout_aclk>;
 		status = "disabled";
+		u-boot,dm-pre-reloc;
 	};
 
 	/* This device is not actually used by any driver. The only purpose
@@ -1043,19 +1049,10 @@
 				reg = <0x4c>;
 				reg-bit = <22>;
 			};
-
-			mcc_clk: mcc_clk {
-				compatible = "elvees,mcom-clk-gate";
-				clocks = <&xtimcc>;
-				#clock-cells = <0>;
-				reg = <0x4c>;
-				reg-bit = <6>;
-			};
 		};
 	};
 
 	pmctr: pmctr@38095000 {
-		u-boot,dm-spl;
 		compatible = "elvees,mcom-pmctr";
 		reg = <0x38095000 0x1000>;
 
@@ -1070,14 +1067,6 @@
 	smctr: smctr@38096000 {
 		compatible = "elvees,mcom-smctr", "syscon";
 		reg = <0x38096000 0x1000>;
-	};
-
-	mcc: mcc@38091000 {
-		compatible = "elvees,mcom-mcc";
-		reg = <0x38091000 0x1000>;
-		interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&mcc_clk>;
-		status = "disabled";
 	};
 
 	vpu: codec@37100000 {
