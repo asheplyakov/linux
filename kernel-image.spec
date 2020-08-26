@@ -5,7 +5,7 @@ Release: alt1
 
 
 %define kernel_base_version	4.4
-%define kernel_sublevel .217
+%define kernel_sublevel .226
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 
@@ -428,9 +428,14 @@ KbuildFiles="
 	scripts/gcc-version.sh
 	scripts/gcc-goto.sh
 	scripts/recordmcount.pl
+	scripts/recordmcount.h
+	scripts/recordmcount.c
+	scripts/recordmcount
 	scripts/module-common.lds
 	scripts/depmod.sh
 	scripts/gcc-plugins/*.so
+	scripts/ld-version.sh
+	tools/objtool/objtool
 
 
 	.config
@@ -577,11 +582,17 @@ grep -q 'reboot: Power down' boot.log || ( cat boot.log && false )
 %endif
 
 %changelog
-* Mon Mar 23 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.217-alt1
-  - Merged with linux-stable v4.4.217
+* Tue Jun 09 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.226-alt2
+- Enable IMA and EVM
 
-* Fri Mar 13 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.216-alt1
-  - Merged with linux-stable v4.4.216
+* Tue Jun 09 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.226-alt1
+- Merged with linux-stable v4.4.226
+
+* Wed May 13 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.215-alt4
+- kernel-modules: package more scripts/
+
+* Wed Mar 18 2020 Ivan A. Melnikov <iv@altlinux.org> 4.4.215-alt3
+- Fix BMC initialization on older Tavolga boards.
 
 * Thu Mar 12 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.215-alt2
   - Handle broken memory info in FDT so the kernel can boot out of the box
