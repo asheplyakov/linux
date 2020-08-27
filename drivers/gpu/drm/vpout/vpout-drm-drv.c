@@ -293,6 +293,11 @@ static int vpout_drm_unload(struct drm_device *drm_dev)
 static void vpout_drm_lastclose(struct drm_device *drm_dev)
 {
 	struct vpout_drm_private *priv = drm_dev->dev_private;
+	if (IS_ERR_OR_NULL(priv)) {
+		dev_warn(drm_dev->dev, "%s: dev_private is invalid: %p\n",
+			 __func__, priv);
+		return;
+	}
 
 	drm_fbdev_cma_restore_mode(priv->fbdev);
 }
