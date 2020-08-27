@@ -263,13 +263,19 @@ int fixup_connectors_names(struct drm_device *drm_dev)
 int vpout_drm_has_preferred_connectors(struct drm_device *drm_dev)
 {
 	struct drm_connector *connector;
-	int prefs = 0;
+	int prefs = 0, count = 0;
 
 	mutex_lock(&drm_dev->mode_config.mutex);
 	drm_for_each_connector(connector, drm_dev) {
 		prefs += connector->cmdline_mode.specified;
+		count++;
 	}
 	mutex_unlock(&drm_dev->mode_config.mutex);
+	if (count == 1) {
+		/* got a single connector, just use that one */
+		prefs = 1;
+		dev_dbg(drm_dev->dev, "%s: got a single connector\n", __func__);
+	}
 
 	return prefs;
 }
