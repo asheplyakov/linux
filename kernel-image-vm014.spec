@@ -1,11 +1,12 @@
 %define kernel_base_version	4.4
-%define kernel_sublevel		.229
+%define kernel_sublevel		.234
 %define kernel_extra_version	.8
 
 Name: kernel-image-vm014
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 Release: alt1
 
+%define defconfig arch/arm/configs/vm_014_0x_defconfig
 %define kernel_extra_version_numeric 1.0.0
 
 %define krelease	%release
@@ -22,7 +23,7 @@ Release: alt1
 
 %define kversion	%kernel_base_version%kernel_sublevel%kernel_extra_version
 %define modules_dir	/lib/modules/%kversion-%flavour-%krelease
-%define dtbs_dir	/lib/modules/devicetree/%kversion-%flavour-%krelease
+%define dtbs_dir	/lib/devicetree/%kversion-%flavour-%krelease
 
 %define kheaders_dir	%_prefix/include/linux-%kversion-%flavour
 %define kbuild_dir	%_prefix/src/linux-%kversion-%flavour-%krelease
@@ -127,7 +128,7 @@ echo "Building Kernel $KernelVer"
 
 %make_build mrproper
 
-cp -vf arch/arm/configs/vm_014_0x_defconfig .config
+cp -vf %defconfig .config
 
 %make_build oldconfig
 %make_build zImage modules dtbs
@@ -253,6 +254,11 @@ touch %buildroot%modules_dir/modules.{alias,dep,symbols,builtin}.bin
 %modules_dir/build
 
 %changelog
+* Tue Sep  1 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.234.8-alt1
+- Updated to v4.4.234
+- Use DRM based vpout driver
+- More usable defconfig (namespaces, tun/tap, ppp, vlan, bridges, etc)
+
 * Mon Aug 31 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.229.8-alt1
 - Updated to v4.4.229
 
