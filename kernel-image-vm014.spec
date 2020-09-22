@@ -1,5 +1,5 @@
 %define kernel_base_version	4.4
-%define kernel_sublevel		.234
+%define kernel_sublevel		.236
 %define kernel_extra_version	.8
 
 Name: kernel-image-vm014
@@ -254,6 +254,10 @@ touch %buildroot%modules_dir/modules.{alias,dep,symbols,builtin}.bin
 %modules_dir/build
 
 %changelog
+* Tue Sep 22 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.236.8-alt1
+- Merged with linux-stable v4.4.236
+- Enabled SELINUX and IMA
+
 * Tue Sep  1 2020 Alexey Sheplyakov <asheplyakov@altlinux.org> 4.4.234.8-alt1
 - Updated to v4.4.234
 - Use DRM based vpout driver
