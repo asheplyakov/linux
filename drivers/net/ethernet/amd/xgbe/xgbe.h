@@ -503,8 +503,15 @@ struct xgbe_channel {
 	void __iomem *dma_regs;
 
 	/* Per channel interrupt irq number */
+#ifndef CONFIG_BAIKAL_XGBE
 	int dma_irq;
 	char dma_irq_name[IFNAMSIZ + 32];
+#else
+	int rx_dma_irq;
+	int tx_dma_irq;
+	char rx_dma_irq_name[IFNAMSIZ + 32];
+	char tx_dma_irq_name[IFNAMSIZ + 32];
+#endif
 
 	/* Netdev related settings */
 	struct napi_struct napi;
@@ -1030,6 +1037,11 @@ struct xgbe_prv_data {
 	struct platform_device *phy_platdev;
 	struct device *phy_dev;
 
+#ifdef CONFIG_BAIKAL_XGBE
+        /* phydevice - tranciever */
+        struct phy_device *phydev;
+#endif
+
 	/* Version related data */
 	struct xgbe_version_data *vdata;
 
@@ -1087,7 +1099,12 @@ struct xgbe_prv_data {
 	int dev_irq;
 	int ecc_irq;
 	int i2c_irq;
+
 	int channel_irq[XGBE_MAX_DMA_CHANNELS];
+#ifdef CONFIG_BAIKAL_XGBE
+	int channel_tx_irq[XGBE_MAX_DMA_CHANNELS];
+	int channel_rx_irq[XGBE_MAX_DMA_CHANNELS];
+#endif
 
 	unsigned int per_channel_irq;
 	unsigned int irq_count;
@@ -1314,6 +1331,28 @@ static inline int xgbe_pci_init(void) { return 0; }
 static inline void xgbe_pci_exit(void) { }
 #endif
 
+#ifdef CONFIG_BAIKAL_XGBE
+void xgbe_init_function_ptrs_phy_baikal(struct xgbe_phy_if *);
+
+#ifndef VR_XS_PMA_MII_Gen5_MPLL_CTRL
+#define VR_XS_PMA_MII_Gen5_MPLL_CTRL			0x807A
+#endif
+#define VR_XS_PMA_MII_Gen5_MPLL_CTRL_REF_CLK_SEL_bit	(1 << 13)
+#define VR_XS_PCS_DIG_CTRL1				0x8000
+#define VR_XS_PCS_DIG_CTRL1_VR_RST_Bit          	MDIO_CTRL1_RESET
+#define SR_XC_or_PCS_MMD_Control1               	MDIO_CTRL1
+#define SR_XC_or_PCS_MMD_Control1_RST_Bit       	MDIO_CTRL1_RESET
+#define DWC_GLBL_PLL_MONITOR                    	0x8010
+#define SDS_PCS_CLOCK_READY_mask                	0x1C
+#define SDS_PCS_CLOCK_READY_bit                 	0x10
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL                  0x809C
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LANE_MODE_KX4    (4 << 0)
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LANE_MODE_MASK   0x0007
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LINK_WIDTH_4     (2 << 8)
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LINK_WIDTH_MASK  0x0700
+#define VR_XS_OR_PCS_MMD_DIGITAL_CTL1_VR_RST            (1 << 15)
+#endif
+
 void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *);
 void xgbe_init_function_ptrs_phy(struct xgbe_phy_if *);
 void xgbe_init_function_ptrs_phy_v1(struct xgbe_phy_if *);
@@ -1370,5 +1409,7 @@ static inline void xgbe_debugfs_rename(struct xgbe_prv_data *pdata) {}
 #else
 #define DBGPR_MDIO(x...) do { } while (0)
 #endif
+
+void xgbe_dump_phy_registers2(struct xgbe_prv_data *pdata);
 
 #endif

@@ -20,9 +20,12 @@
 #include <linux/time.h>
 #include <asm/mips-cps.h>
 
+#define CALCULATE_RATING(gic_freq) 200 + gic_freq / 10000000
+
 static DEFINE_PER_CPU(struct clock_event_device, gic_clockevent_device);
 static int gic_timer_irq;
 static unsigned int gic_frequency;
+static int __init __gic_clocksource_init(void);
 
 static u64 notrace gic_read_count(void)
 {
@@ -109,13 +112,48 @@ static int gic_starting_cpu(unsigned int cpu)
 	return 0;
 }
 
+static u64 gic_hpt_read(struct clocksource *cs)
+{
+	return gic_read_count();
+}
+
+static struct clocksource gic_clocksource = {
+	.name		= "GIC",
+	.read		= gic_hpt_read,
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
+	.archdata	= { .vdso_clock_mode = VDSO_CLOCK_GIC },
+};
+
 static int gic_clk_notifier(struct notifier_block *nb, unsigned long action,
 			    void *data)
 {
 	struct clk_notifier_data *cnd = data;
+	unsigned int count_width;
+	int ret;
 
-	if (action == POST_RATE_CHANGE)
+	/* Update clocksource in case of new freq */
+	if (action == PRE_RATE_CHANGE){
+		clocksource_unregister(&gic_clocksource);
+	}
+
+	if (action == POST_RATE_CHANGE){
+		gic_frequency = cnd->new_rate;
+
+		/* Set clocksource mask. */
+		count_width = read_gic_config() & GIC_CONFIG_COUNTBITS;
+		count_width >>= __ffs(GIC_CONFIG_COUNTBITS);
+		count_width *= 4;
+		count_width += 32;
+		gic_clocksource.mask = CLOCKSOURCE_MASK(count_width);
+
+		/* Calculate a somewhat reasonable rating value. */
+		gic_clocksource.rating = CALCULATE_RATING(gic_frequency);
+
+		ret = clocksource_register_hz(&gic_clocksource, gic_frequency);
+		if (ret < 0)
+			pr_warn("Unable to register clocksource\n");
 		on_each_cpu(gic_update_frequency, (void *)cnd->new_rate, 1);
+	}
 
 	return NOTIFY_OK;
 }
@@ -149,18 +187,6 @@ static int gic_clockevent_init(void)
 	return 0;
 }
 
-static u64 gic_hpt_read(struct clocksource *cs)
-{
-	return gic_read_count();
-}
-
-static struct clocksource gic_clocksource = {
-	.name		= "GIC",
-	.read		= gic_hpt_read,
-	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
-	.archdata	= { .vdso_clock_mode = VDSO_CLOCK_GIC },
-};
-
 static int __init __gic_clocksource_init(void)
 {
 	unsigned int count_width;
@@ -174,7 +200,7 @@ static int __init __gic_clocksource_init(void)
 	gic_clocksource.mask = CLOCKSOURCE_MASK(count_width);
 
 	/* Calculate a somewhat reasonable rating value. */
-	gic_clocksource.rating = 200 + gic_frequency / 10000000;
+	gic_clocksource.rating = CALCULATE_RATING(gic_frequency);
 
 	ret = clocksource_register_hz(&gic_clocksource, gic_frequency);
 	if (ret < 0)

@@ -962,22 +962,35 @@ static int ath_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	sc->mem = pcim_iomap_table(pdev)[0];
 	sc->driver_data = id->driver_data;
 
+	if (pdev->irq == 255 || pdev->irq == 0) { /* not configured by PCI BIOS */
+		ret = pci_enable_msi(pdev);
+		dev_info(&pdev->dev, "pci_enable_msi: ret %d, irq %d\n", ret, pdev->irq);
+	}
+
 	if (ath9k_use_msi) {
-		if (pci_enable_msi(pdev) == 0) {
-			msi_enabled = 1;
+		if ((ret = pci_enable_msi_range(pdev, 1, 4)) > 0) {
+			msi_enabled = ret;
 			dev_err(&pdev->dev, "Using MSI\n");
 		} else {
 			dev_err(&pdev->dev, "Using INTx\n");
 		}
 	}
 
-	if (!msi_enabled)
+	if (!msi_enabled) {
 		ret = request_irq(pdev->irq, ath_isr, IRQF_SHARED, "ath9k", sc);
-	else
-		ret = request_irq(pdev->irq, ath_isr, 0, "ath9k", sc);
+	} else {
+		int i;
+		for (i = 0; i < msi_enabled; i++) {
+			ret = request_irq(pdev->irq + i, ath_isr, 0, "ath9k", sc);
+			if (ret) {
+				for (--i; i >= 0; i--)
+					free_irq(pdev->irq + i, sc);
+			}
+		}
+	}
 
 	if (ret) {
-		dev_err(&pdev->dev, "request_irq failed\n");
+		dev_err(&pdev->dev, "request_irq (%d) failed (%d)\n", pdev->irq, ret);
 		goto err_irq;
 	}
 
@@ -1014,6 +1027,11 @@ static void ath_pci_remove(struct pci_dev *pdev)
 		sc->sc_ah->ah_flags |= AH_UNPLUGGED;
 	ath9k_deinit_device(sc);
 	free_irq(sc->irq, sc);
+	if (sc->sc_ah->msi_enabled > 1) {
+		int i;
+		for (i = sc->sc_ah->msi_enabled - 1; i > 0; i--)
+			free_irq(sc->irq + i, sc);
+	}
 	ieee80211_free_hw(sc->hw);
 }
 

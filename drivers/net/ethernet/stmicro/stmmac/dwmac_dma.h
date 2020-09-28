@@ -21,6 +21,9 @@
 #define DMA_CONTROL		0x00001018	/* Ctrl (Operational Mode) */
 #define DMA_INTR_ENA		0x0000101c	/* Interrupt Enable */
 #define DMA_MISSED_FRAME_CTR	0x00001020	/* Missed Frame Counter */
+#define GMAC_GPIO		0x000000e0	/* GPIO register */
+
+#define GMAC_GPIO_GPO0		(1 << 8)	/* 0-output port */
 
 /* SW Reset */
 #define DMA_BUS_MODE_SFT_RESET	0x00000001	/* Software Reset */

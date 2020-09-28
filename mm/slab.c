@@ -3449,6 +3449,10 @@ void ___cache_free(struct kmem_cache *cachep, void *objp,
 	if (nr_online_nodes > 1 && cache_free_alien(cachep, objp))
 		return;
 
+#ifdef ARCH_WANTS_TLB_PREFETCH
+	tlb_prefetch((unsigned long)ac);
+#endif
+
 	if (ac->avail < ac->limit) {
 		STATS_INC_FREEHIT(cachep);
 	} else {

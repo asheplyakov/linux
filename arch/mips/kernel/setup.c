@@ -676,6 +676,14 @@ static void __init resource_init(void)
 	if (UNCAC_BASE != IO_BASE)
 		return;
 
+#ifdef CONFIG_MIPS_BAIKAL
+	/*
+	 * Don't register the low-level and High-level memory regions.
+	 * Otherwise PCI cannot register the PCI IO/MEM resources.
+	 */
+	return;
+#endif
+
 	code_resource.start = __pa_symbol(&_text);
 	code_resource.end = __pa_symbol(&_etext) - 1;
 	data_resource.start = __pa_symbol(&_etext);

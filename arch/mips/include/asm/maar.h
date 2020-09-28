@@ -53,12 +53,22 @@ static inline void write_maar_pair(unsigned idx, phys_addr_t lower,
 	back_to_back_c0_hazard();
 	write_c0_maar(((upper >> 4) & MIPS_MAAR_ADDR) | attrs);
 	back_to_back_c0_hazard();
+#ifdef CONFIG_XPA
+	/* Write bits [39:36] of the upper address to the extended MAAR. */
+	writex_c0_maar((upper >> (MIPS_MAARX_ADDR_SHIFT)) | MIPS_MAARX_VH);
+	back_to_back_c0_hazard();
+#endif /* CONFIG_XPA */
 
 	/* Write the lower address & attributes */
 	write_c0_maari((idx << 1) | 0x1);
 	back_to_back_c0_hazard();
 	write_c0_maar((lower >> 4) | attrs);
 	back_to_back_c0_hazard();
+#ifdef CONFIG_XPA
+	writex_c0_maar((lower >> (MIPS_MAARX_ADDR_SHIFT)) | MIPS_MAARX_VH);
+	back_to_back_c0_hazard();
+#endif /* CONFIG_XPA */
+
 }
 
 /**

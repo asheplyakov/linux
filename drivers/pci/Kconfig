@@ -127,6 +127,9 @@ config PCI_LOCKLESS_CONFIG
 config PCI_BRIDGE_EMUL
 	bool
 
+config PCI_ECAM
+	bool "PCI ECAM support"
+
 config PCI_IOV
 	bool "PCI IOV support"
 	select PCI_ATS

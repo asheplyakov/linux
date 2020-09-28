@@ -1,0 +1,247 @@
+#
+# Baikal-T/T1 SOC platform support code.
+#
+# Copyright (C) 2014-2017 Baikal Electronics JSC
+#
+# Authors:
+# Dmitry Dunaev <dmitry.dunaev@baikalelectronics.com>
+# Alexander Sazonov <Alexander.Sazonov@baikalelectronics.ru>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+
+if MIPS_BAIKAL
+
+choice
+    prompt "Baikal-T SoC Family Support"
+    default MIPS_BAIKAL_T  if MACH_BAIKAL_BFK
+    default MIPS_BAIKAL_T1 if MACH_BAIKAL_BFK3
+    default MIPS_BAIKAL_T1
+
+config MIPS_BAIKAL_T
+    bool "BAIKAL-T MIPS CPU"
+    select OF_EARLY_FLATTREE
+    select GENERIC_SCHED_CLOCK
+    select NO_IOPORT
+    select SOC_BUS
+    help
+      Baikal-T SoC with MIPS32 P5600 core (engineering version)
+
+config MIPS_BAIKAL_T1
+    bool "BAIKAL-T1 MIPS CPU"
+    select OF_EARLY_FLATTREE
+    select GENERIC_SCHED_CLOCK
+    select NO_IOPORT
+    select SOC_BUS
+    select BAIKAL_EFUSE
+    help
+      Baikal-T1 SoC with MIPS32 P5600 core (production version)
+
+endchoice
+
+config BAIKAL_T_COMMON
+    bool "Baikal-T SoC common features"
+
+    # Boot Controller support
+    select BE_BC
+
+    # Hardware features
+    select HW_HAS_PCI
+    select HW_PERF_EVENTS
+    select CPU_FREQ_GOV_PERFORMANCE
+    select CPU_FREQ_GOV_POWERSAVE
+
+    # Common
+    select PHYLIB
+    select DEBUG_LL
+    select TIMER_GENERIC
+    select ARCH_WANT_OPTIONAL_GPIOLIB
+    select SYS_HAS_CPU_MIPS32_R5
+    select GENERIC_CLOCKEVENTS_MIN_ADJUST
+
+    # HW perfomance counters
+    select HAVE_PERF_EVENTS
+    select PERF_EVENTS
+    select HW_PERF_EVENTS
+
+    # Clock source
+    select COMMON_CLK_BAIKAL
+    select WDT_MIPS_GIC
+
+    # Serial UART
+    select SERIAL_8250
+    select SERIAL_8250_CONSOLE
+    select SERIAL_8250_EXTENDED
+    select SERIAL_8250_DW
+
+    # WatchDog
+    select DW_WATCHDOG
+
+    # Timers
+    select CLKSRC_OF
+    select DW_APB_TIMER
+    select DW_APB_TIMER_OF
+
+    # I2C Bus support
+    select I2C_DESIGNWARE_CORE
+    select I2C_DESIGNWARE_PLATFORM
+
+    # GPIO support
+    select GPIOLIB
+    select OF_GPIO
+    select GPIO_SYSFS
+    select GPIO_DWAPB
+    select GPIO_GENERIC
+
+    # Gigabit Ethernet support
+    select STMMAC_ETH
+    select STMMAC_PLATFORM
+    select STMMAC_DEBUG_FS
+
+    # SPI bus support
+    select SPI_DESIGNWARE
+    select SPI_DW_MMIO
+    select SPI_BAIKAL
+
+    # USB Support
+    select USB_DWC3
+    select USB_DWC3_HOST
+    select USB_DWC3_BAIKAL
+    select USB_PHY
+
+    help
+      Common features of Baikal-T SoC based boards
+
+choice
+    prompt "Baikal-T SoC based Boards"
+    default MACH_BAIKAL_BFK
+
+config MACH_BAIKAL_BFK
+    bool "Baikal-T BFK board"
+
+    # Basic SoC features
+    select MIPS_BAIKAL_T
+    select BAIKAL_T_COMMON
+
+    # Memory mapping granularity
+    select PAGE_SIZE_16KB
+
+    # DTB select
+    select DTB_BAIKAL_BFK
+
+config MACH_BAIKAL_BFK3
+    bool "Baikal-T1 BFK3 board"
+
+    # Basic SoC features
+    select MIPS_BAIKAL_T1
+    select BAIKAL_T_COMMON
+
+    # Memory mapping granularity
+    select PAGE_SIZE_16KB
+
+    # DTB select
+    select DTB_BAIKAL_BFK3
+
+    # MMC
+    select MMC
+    select MMC_SPI
+
+
+endchoice
+
+choice
+    prompt "Baikal-T based Board Configs"
+    default DTB_BAIKAL_BFK
+    help
+      Select device tree for Baikal-T/T1 SoC based board
+
+config DTB_BAIKAL_BFK
+    bool "Baikal-T BFK board"
+    help
+      Device tree for BFK boards (for versions 1.0, 1.5, 1.6)
+      based on Baikal-T SOC.
+
+config DTB_BAIKAL_BFK3
+    bool "Baikal-T1 BFK3 board"
+    help
+      Device tree for BFK3 boards (for versions 2.0, 3.x)
+      based on Baikal-T1 SOC.
+
+config DTB_BAIKAL_BFKX
+    bool "Baikal-T1 BFKX board"
+    help
+      Device tree for BFKX boards (for version BFK1.6+Baikal-T1)
+      based on Baikal-T1 SOC.
+
+endchoice
+
+config ARCH_NR_GPIOS
+    int "Baikal GPIOs plus architecture specific ones"
+    range 32 512
+    default 43 if MACH_BAIKAL_BFK
+    default 43 if MACH_BAIKAL_BFK3
+    default 35
+    help
+      Maximum number of GPIOs in the system.
+
+      If unsure, leave the default value.
+
+menuconfig BAIKAL_ERRATA
+    bool "Baikal-T SoC Errata Fix"
+    help
+      Select this option if you want to fix known Baikal Errata
+
+if BAIKAL_ERRATA
+
+config BAIKAL_ERRATA_XGMAC
+    bool "Fix for MMD Devices in package registers swap in XGMAC"
+    help
+      Fix for MMD Devices in package registers swap in XGMAC in
+      early Baikal-T SoCs
+
+      If unsure, say Y.
+
+config BAIKAL_ERRATA_GMAC
+    bool "Fix for GMAC block speed 10/100M"
+    help
+      Fix for GMAC block speed 10/100M in early Baikal-T SoCs
+
+      If unsure, say N.
+
+config BAIKAL_ERRATA_GBE_PHY_MICREL
+    bool "Fix for Micrel PHY RX delay on BFK board"
+    help
+      Fix for Micrel PHY RX delay on early revisions of BFK board (v1.0)
+
+      If unsure, say N.
+
+endif # BAIKAL_ERRATA
+endif # MIPS_BAIKAL
+
+config SYS_HAS_CPU_MIPS32_R5
+    bool
+    default n
+
+config WDT_MIPS_GIC
+    bool
+    default n
+
+config BE_BC
+    tristate "boot controller"
+
+config BAIKAL_EFUSE
+    tristate "Baikal-T1 eFUSE driver"
+
+# source "drivers/dma/baikal/Kconfig"

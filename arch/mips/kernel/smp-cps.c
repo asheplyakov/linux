@@ -247,7 +247,12 @@ static void boot_core(unsigned int core, unsigned int vpe_id)
 			wmb();
 		}
 
-		write_cpc_co_cmd(CPC_Cx_CMD_RESET);
+		/*
+		 * Use PWRUP instead of RESET command for operating EJTAG.
+		 * Otherwise there is no EJTAG chain.
+		 */
+		write_cpc_co_cmd(CPC_Cx_CMD_PWRUP);
+
 
 		timeout = 100;
 		while (true) {

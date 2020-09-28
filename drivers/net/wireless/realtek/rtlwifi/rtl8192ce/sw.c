@@ -108,6 +108,7 @@ int rtl92c_init_sw_vars(struct ieee80211_hw *hw)
 		   IMR_HIGHDOK | IMR_BDOK | IMR_RDU | IMR_RXFOVW | 0);
 
 	rtlpci->irq_mask[1] = (u32) (IMR_CPWM | IMR_C2HCMD | 0);
+	rtlpci->msi_support = true;
 
 	/* for LPS & IPS */
 	rtlpriv->psc.inactiveps = rtlpriv->cfg->mod_params->inactiveps;

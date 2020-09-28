@@ -36,7 +36,7 @@ config CPU_FREQ_STAT
 
 choice
 	prompt "Default CPUFreq governor"
-	default CPU_FREQ_DEFAULT_GOV_USERSPACE if ARM_SA1100_CPUFREQ || ARM_SA1110_CPUFREQ
+	default CPU_FREQ_DEFAULT_GOV_USERSPACE if ARM_SA1100_CPUFREQ || ARM_SA1110_CPUFREQ || MIPS_BAIKAL
 	default CPU_FREQ_DEFAULT_GOV_PERFORMANCE
 	help
 	  This option sets which CPUFreq governor shall be loaded at
@@ -245,6 +245,19 @@ config IA64_ACPI_CPUFREQ
 	For details, take a look at <file:Documentation/cpu-freq/>.
 
 	If in doubt, say N.
+endif
+
+if MIPS_BAIKAL
+config BAIKAL_T1_CPUFREQ
+	tristate "Baikal-T1 CPUFreq Driver"
+	default y
+	help
+	  This option adds a CPUFreq driver for Baikal-T1 processor which
+	  support software configurable cpu frequency.
+
+	  For details, take a look at <file:Documentation/cpu-freq/>.
+
+	  If in doubt, say N.
 endif
 
 if MIPS

@@ -370,6 +370,7 @@ static int xgbe_platform_probe(struct platform_device *pdev)
 	if (netif_msg_probe(pdata))
 		dev_dbg(dev, "xpcs_regs  = %p\n", pdata->xpcs_regs);
 
+#ifndef CONFIG_BAIKAL_XGBE
 	pdata->rxtx_regs = devm_platform_ioremap_resource(phy_pdev,
 							  phy_memnum++);
 	if (IS_ERR(pdata->rxtx_regs)) {
@@ -399,6 +400,7 @@ static int xgbe_platform_probe(struct platform_device *pdev)
 	}
 	if (netif_msg_probe(pdata))
 		dev_dbg(dev, "sir1_regs  = %p\n", pdata->sir1_regs);
+#endif
 
 	/* Retrieve the MAC address */
 	ret = device_property_read_u8_array(dev, XGBE_MAC_ADDR_PROPERTY,
@@ -425,7 +427,11 @@ static int xgbe_platform_probe(struct platform_device *pdev)
 	/* Check for per channel interrupt support */
 	if (device_property_present(dev, XGBE_DMA_IRQS_PROPERTY)) {
 		pdata->per_channel_irq = 1;
+#ifndef CONFIG_BAIKAL_XGBE
 		pdata->channel_irq_mode = XGBE_IRQ_MODE_EDGE;
+#else
+		pdata->channel_irq_mode = XGBE_IRQ_MODE_LEVEL;
+#endif
 	}
 
 	/* Obtain device settings unique to ACPI/OF */
@@ -467,8 +473,12 @@ static int xgbe_platform_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_io;
 	pdata->dev_irq = ret;
+#ifdef CONFIG_BAIKAL_XGBE
+	pdata->an_irq = pdata->dev_irq;
+#endif
 
 	/* Get the per channel DMA interrupts */
+#ifndef CONFIG_BAIKAL_XGBE
 	if (pdata->per_channel_irq) {
 		unsigned int i, max = ARRAY_SIZE(pdata->channel_irq);
 
@@ -484,12 +494,45 @@ static int xgbe_platform_probe(struct platform_device *pdev)
 
 		pdata->irq_count += max;
 	}
+#else
+	if (pdata->per_channel_irq) {
+		unsigned int i, max = ARRAY_SIZE(pdata->channel_tx_irq);
 
+		ret = platform_get_irq(pdata->platdev, 1);
+		if (ret < 0)
+			goto err_io;
+		pdata->channel_tx_irq[0] = ret;
+
+		ret = platform_get_irq(pdata->platdev, 3);
+		if (ret < 0)
+			goto err_io;
+		pdata->channel_rx_irq[0] = ret;
+
+		ret = platform_get_irq(pdata->platdev, 2);
+		if (ret < 0)
+			goto err_io;
+		pdata->channel_tx_irq[1] = ret;
+
+		ret = platform_get_irq(pdata->platdev, 4);
+		if (ret < 0)
+			goto err_io;
+		pdata->channel_rx_irq[1] = ret;
+
+		dma_irqnum = 2;
+
+		pdata->channel_irq_count = max;
+
+		pdata->irq_count += max;
+	}
+#endif
+
+#ifndef CONFIG_BAIKAL_XGBE
 	/* Get the auto-negotiation interrupt */
 	ret = platform_get_irq(phy_pdev, phy_irqnum++);
 	if (ret < 0)
 		goto err_io;
 	pdata->an_irq = ret;
+#endif
 
 	/* Configure the netdev resource */
 	ret = xgbe_config_netdev(pdata);
@@ -573,7 +616,11 @@ static int xgbe_platform_resume(struct device *dev)
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct xgbe_version_data xgbe_v1 = {
+#ifdef CONFIG_BAIKAL_XGBE
+	.init_function_ptrs_phy_impl	= xgbe_init_function_ptrs_phy_baikal,
+#else
 	.init_function_ptrs_phy_impl	= xgbe_init_function_ptrs_phy_v1,
+#endif
 	.xpcs_access			= XGBE_XPCS_ACCESS_V1,
 	.tx_max_fifo_size		= 81920,
 	.rx_max_fifo_size		= 81920,

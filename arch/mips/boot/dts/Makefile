@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
+subdir-y	+= baikal
 subdir-y	+= brcm
 subdir-y	+= cavium-octeon
 subdir-y	+= img

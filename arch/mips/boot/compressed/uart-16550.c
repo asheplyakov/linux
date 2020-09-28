@@ -13,6 +13,13 @@
 #define PORT(offset) (CKSEG1ADDR(UART_BASE) + (offset))
 #endif
 
+#ifdef CONFIG_MIPS_BAIKAL
+#include <asm/mach-baikal/hardware.h>
+#define UART0_BASE BAIKAL_UART0_START
+#define PORT(offset) (CKSEG1ADDR(UART0_BASE) + (4 * offset))
+#define IOTYPE unsigned int
+#endif
+
 #ifdef CONFIG_AR7
 #include <ar7.h>
 #define PORT(offset) (CKSEG1ADDR(AR7_REGS_UART0) + (4 * offset))
