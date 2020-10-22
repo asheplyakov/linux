@@ -287,6 +287,7 @@ static const struct of_device_id baikal_vdu_of_match[] = {
     { .compatible = "baikal,vdu" },
     { },
 };
+MODULE_DEVICE_TABLE(of, baikal_vdu_of_match);
 
 static struct platform_driver baikal_vdu_platform_driver = {
     .probe  = baikal_vdu_drm_probe,
@@ -305,3 +306,4 @@ MODULE_AUTHOR("Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>");
 MODULE_DESCRIPTION("Baikal Electronics BE-M1000 Video Display Unit (VDU) DRM Driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRIVER_NAME);
+MODULE_SOFTDEP("pre: baikal_hdmi");
