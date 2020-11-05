@@ -162,7 +162,7 @@ static unsigned long baikal_clk_recalc_rate(struct clk_hw *hw,
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, 0,
 	parent, 0, 0, 0, &res);
 
-	pr_debug("[%s, %x:%d:%s] %s, %ld\n",
+	pr_debug("[%s, %lx:%d:%s] %s, %ld\n",
 		pclk->name,
 		parent,
 		pclk->cmu_id,
