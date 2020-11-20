@@ -1,0 +1,72 @@
+
+ARCH := arm64
+CROSS_COMPILE := aarch64-linux-gnu-
+CC := clang
+DEFCONFIG := baikal_minimal_defconfig
+ENABLE_INITRAMFS ?= auto
+
+all: install
+
+.config: arch/$(ARCH)/configs/$(DEFCONFIG)
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CC=$(CC) CROSS_COMPILE=$(CROSS_COMPILE) \
+	$(DEFCONFIG)
+
+.PHONY: menuconfig
+menuconfig: .config
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CC=$(CC) CROSS_COMPILE=$(CROSS_COMPILE) \
+	menuconfig
+
+.PHONY: kernel
+kernel: .config
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CC=$(CC) CROSS_COMPILE=$(CROSS_COMPILE) \
+		all
+
+.PHONY: install
+install: kernel
+	rm -rf _inst
+	mkdir -p -m 755 _inst/boot
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CC=$(CC) CROSS_COMPILE=$(CROSS_COMPILE) \
+		INSTALL_PATH=`pwd`/_inst/boot \
+		INSTALL_MOD_PATH=`pwd`/_inst \
+		install modules_install
+	depmod -b `pwd`/_inst `cat include/config/kernel.release`
+
+
+.PHONY: tarball
+tarball: install
+	kver=`cat include/config/kernel.release`; \
+	if grep -q -e 'CONFIG_MODULE_COMPRESS=y' .config; then Z=''; else Z='z'; fi; \
+	tarball=linux-$$kver-$(ARCH).tgz; \
+	if [ x"$Z" = x ]; then tarball=linux-$$kver-$(ARCH).tar; fi; \
+	fakeroot tar "c${Z}vf" $$tarball -C _inst \
+	boot/vmlinuz-$$kver \
+	boot/config-$$kver \
+	boot/System.map-$$kver \
+	lib/modules/$$kver && echo $$tarball
+
+.PHONY: deploy
+deploy: tarball
+	ansible-playbook -i hosts -e enable_initramfs=$(ENABLE_INITRAMFS) deploy.yml
+
+
+.PHONY: clean
+clean:
+	rm -rf _inst
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CC=$(CC) CROSS_COMPILE=$(CROSS_COMPILE) \
+	clean
+

@@ -1,0 +1,199 @@
+---
+
+- hosts: arm64
+  tasks:
+    - name: figure out kernel version
+      command:
+        cat include/config/kernel.release
+      register: kernel_version_out
+      delegate_to: localhost
+    - set_fact:
+        kernel_version: "{{ kernel_version_out.stdout_lines[0] }}"
+    - debug: var=kernel_version
+    - name: check if modules are already compressed
+      command: >
+        grep -q -e 'CONFIG_MODULE_COMPRESS=y' .config
+      register: compressed_modules
+      failed_when: False
+      delegate_to: localhost
+    - name: will use uncompressed tarball
+      set_fact:
+        kernel_tarball: "linux-{{ kernel_version }}-arm64.tgz"
+      when: compressed_modules.rc != 0
+    - name: will use gzipped tarball
+      set_fact:
+        kernel_tarball: "linux-{{ kernel_version }}-arm64.tar"
+      when: compressed_modules.rc == 0
+    - debug: var=kernel_tarball
+    - name: unpack kernel tarball
+      unarchive:
+        src: "{{ kernel_tarball }}"
+        dest: "{{ remote_root|default('/') }}"
+    - name: run depmod
+      command: >
+        depmod -a {{ kernel_version }}
+
+    - name: check if SATA driver is compiled into kernel
+      command: >
+        grep -q -e 'CONFIG_SATA_AHCI_PLATFORM=y' .config
+      register: sata_driver_builtin
+      delegate_to: localhost
+      failed_when: False
+
+    - name: check if EXT4 is compiled into kernel
+      command: >
+        grep -q -e 'CONFIG_EXT4_FS=y' .config
+      register: ext4_builtin
+      delegate_to: localhost
+      failed_when: False
+
+    - name: can mount root directly
+      set_fact:
+        use_initramfs: false
+      when:
+        - enable_initramfs is not defined or enable_initramfs == 'auto'
+        - ext4_builtin.rc == 0
+        - sata_driver_builtin.rc == 0
+      delegate_to: localhost
+
+    - name: need initramfs to boot
+      set_fact:
+        use_initramfs: true
+      when:
+        - enable_initramfs is not defined or enable_initramfs == 'auto'
+        - ext4_builtin.rc != 0 or sata_driver_builtin.rc != 0
+      delegate_to: localhost
+
+    - name: force using initramfs
+      set_fact:
+        use_initramfs: true
+      when:
+        - enable_initramfs is defined and enable_initramfs != 'auto'
+        - enable_initramfs is defined and enable_initramfs|bool
+      delegate_to: localhost
+
+    - name: forcibly disable initramfs
+      set_fact:
+        use_initramfs: false
+      when:
+        - enable_initramfs is defined and enable_initramfs != 'auto'
+        - enable_initramfs is defined and not(enable_initramfs|bool)
+      delegate_to: localhost
+
+    - name: create initramfs
+      command: >
+        make-initrd -k "{{ kernel_version }}"
+      when: use_initramfs|default('false')|bool
+
+    - name: figure out GPU driver
+      command: >
+        grep -q -e 'CONFIG_MALI_MIDGARD=[ym]' .config
+      register: mali_kbase_enabled
+      failed_when: False
+      delegate_to: localhost
+
+    - name: check if Mali blob is installed
+      stat:
+        path: "{{ mali_blob_path|default('/opt/mali') }}/lib/libmali.so"
+        get_checksum: no
+        get_mime: no
+      register: libmali_so_stat
+      failed_when: False
+
+    - name: will use Mali blob
+      set_fact:
+        gpu_driver: mali_kbase
+      when:
+        - gpu_driver is undefined
+        - mali_kbase_enabled.rc == 0
+        - libmali_so_stat.stat.islnk is defined
+
+    - name: will use Panfrost
+      set_fact:
+        gpu_driver: panfrost
+      when:
+        - gpu_driver is undefined
+        - mali_kbase_enabled.rc != 0 or libmali_so_stat.stat.islnk is not defined
+
+    - name: blacklist panfrost driver
+      copy:
+        dest: /etc/modprobe.d/mali_gpu_driver.conf
+        mode: 0644
+        owner: root
+        group: root
+        content: 'blacklist panfrost'
+      when: gpu_driver|default('mali_kbase') == 'mali_kbase'
+    - name: blacklist mali_kbase driver
+      copy:
+        dest: /etc/modprobe.d/mali_gpu_driver.conf
+        mode: 0644
+        owner: root
+        group: root
+        content: 'blacklist mali_kbase'
+      when: gpu_driver|default('mali_kbase') == 'panfrost'
+    - name: enable Mali userspace blob
+      lineinfile:
+        path: /etc/ld.so.conf
+        line: "{{ mali_blob_path|default('/opt/mali') }}/lib"
+        insertbefore: BOF
+      when: gpu_driver|default('mali_kbase') == 'mali_kbase'
+      notify:
+        - run ldconfig
+    - name: disable Mali userspace blob
+      lineinfile:
+        path: /etc/ld.so.conf
+        line: "{{ mali_blob_path|default('/opt/mali') }}/lib"
+        state: absent
+      when: gpu_driver|default('mali_kbase') == 'panfrost'
+      notify:
+        - run ldconfig
+
+    - name: copy kernel to ESP
+      copy:
+        remote_src: yes
+        src: "{{ remote_root|default('/') }}/boot/vmlinuz-{{ kernel_version }}"
+        dest: "{{ remote_root|default('/') }}/boot/efi/vmlinuz-{{ kernel_version }}"
+    - name: copy initramfs to ESP
+      copy:
+        remote_src: yes
+        src: "{{ remote_root|default('/') }}/boot/initrd-{{ kernel_version }}.img"
+        dest: "{{ remote_root|default('/') }}/boot/efi/initrd-{{ kernel_version }}.img"
+      when: use_initramfs|default('false')|bool
+
+    - name: figure out remote root device
+      command: >
+        findmnt --noheadings -o SOURCE,UUID -M {{ remote_root|default('/') }}
+      register: remote_root_findmnt
+      when: remote_root_device is undefined
+
+    - set_fact:
+        remote_root_id: "{{ remote_root_device }}"
+      when: remote_root_device is defined
+    - set_fact:
+        remote_root_id: "{{ remote_root_findmnt.stdout_lines[0].split()[0] }}"
+      when:
+        - remote_root_device is undefined
+        - not use_initramfs|default('false')|bool
+    - set_fact:
+        remote_root_id: "UUID={{ remote_root_findmnt.stdout_lines[0].split()[1] }}"
+      when:
+        - remote_root_device is undefined
+        - use_initramfs|default('false')|bool
+
+    - name: setup booting with startup.nsh
+      template:
+        src: startup.nsh.j2
+        dest: "{{ remote_root|default('/') }}/boot/efi/startup.nsh"
+
+    - name: force all notified handlers to run
+      meta: flush_handlers
+
+    - name: reboot the box
+      reboot:
+        reboot_timeout: 300
+      when:
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+  handlers:
+    - name: run ldconfig
+      command: ldconfig
