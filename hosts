@@ -1,0 +1,2 @@
+[arm64]
+baikalm.local ansible_user=root

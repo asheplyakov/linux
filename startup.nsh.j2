@@ -1,0 +1,20 @@
+
+set -v KVER {{ kernel_version }}
+
+for %d run (0 9)
+   if exists fs%d:\vmlinuz-%KVER% then
+       set -v KDRIVE fs%d
+       goto KernelFound
+   endif
+   if exists fs%d:\boot\vmlinuz-%KVER% then
+       set -v KDRIVE fs%d
+       set -v KDIR \boot
+       goto KernelFound
+   endif
+endfor
+
+echo file vmlinuz-%KVER% could not be found
+exit 1
+
+:KernelFound
+%KDRIVE%:%KDIR%\vmlinuz-%KVER% initrd=%KDIR%\initrd-%KVER%.img root={{ remote_root_id }} devtmpfs=mount console=ttyS0,115200n8 earlycon=uart8250,mmio32,0x20230000 ignore_loglevel audit=0

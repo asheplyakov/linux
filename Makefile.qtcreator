@@ -1,0 +1,67 @@
+
+ARCH := arm64
+CROSS_COMPILE := aarch64-linux-gnu-
+DEFCONFIG := baikal_minimal_defconfig
+ENABLE_INITRAMFS ?= auto
+PATH := /usr/lib/distcc:/usr/bin:/bin:/sbin:/usr/sbin
+DISTCC_HOSTS := asheplyakov-i5bis.local/20 localhost/8 --localslots_cpp=28
+DISTCC_TOOL := distcc
+
+ENV := env PATH='$(PATH)' DISTCC_HOSTS='$(DISTCC_HOSTS)' CCACHE_PREFIX='$(DISTCC_TOOL)' KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+# ENV := env PATH='$(PATH)' KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+# ENV := env PATH='/usr/bin:/bin:/sbin:/usr/sbin' KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+
+all: install
+
+.config: arch/$(ARCH)/configs/$(DEFCONFIG)
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+	$(DEFCONFIG)
+
+.PHONY: menuconfig
+menuconfig: .config
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+	menuconfig
+
+.PHONY: kernel
+kernel: .config
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		all
+
+.PHONY: install
+install: kernel
+	rm -rf _inst
+	mkdir -p -m 755 _inst/boot
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		INSTALL_PATH=`pwd`/_inst/boot \
+		INSTALL_MOD_PATH=`pwd`/_inst \
+		install modules_install
+	depmod -b `pwd`/_inst `cat include/config/kernel.release`
+
+
+.PHONY: tarball
+tarball: install
+	kver=`cat include/config/kernel.release`; \
+	if grep -q -e 'CONFIG_MODULE_COMPRESS=y' .config; then Z=''; else Z='z'; fi; \
+	tarball=linux-$$kver-$(ARCH).tgz; \
+	if [ x"$Z" = x ]; then tarball=linux-$$kver-$(ARCH).tar; fi; \
+	fakeroot tar "c${Z}vf" $$tarball -C _inst \
+	boot/vmlinuz-$$kver \
+	boot/config-$$kver \
+	boot/System.map-$$kver \
+	lib/modules/$$kver && echo $$tarball
+
+.PHONY: deploy
+deploy: tarball
+	ansible-playbook -i hosts -e enable_initramfs=$(ENABLE_INITRAMFS) deploy.yml
+
+
+.PHONY: clean
+clean:
+	rm -rf _inst
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+	clean

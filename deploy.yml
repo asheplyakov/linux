@@ -1,0 +1,128 @@
+---
+
+- hosts: arm64
+  tasks:
+    - name: figure out kernel version
+      command:
+        cat include/config/kernel.release
+      register: kernel_version_out
+      delegate_to: localhost
+    - set_fact:
+        kernel_version: "{{ kernel_version_out.stdout_lines[0] }}"
+    - debug: var=kernel_version
+    - name: check if modules are already compressed
+      command: >
+        grep -q -e 'CONFIG_MODULE_COMPRESS=y' .config
+      register: compressed_modules
+      failed_when: False
+      delegate_to: localhost
+    - name: will use uncompressed tarball
+      set_fact:
+        kernel_tarball: "linux-{{ kernel_version }}-arm64.tgz"
+      when: compressed_modules.rc != 0
+    - name: will use gzipped tarball
+      set_fact:
+        kernel_tarball: "linux-{{ kernel_version }}-arm64.tar"
+      when: compressed_modules.rc == 0
+    - debug: var=kernel_tarball
+    - name: unpack kernel tarball
+      unarchive:
+        src: "{{ kernel_tarball }}"
+        dest: "{{ remote_root|default('/') }}"
+    - name: run depmod
+      command: >
+        depmod -a {{ kernel_version }}
+
+    - name: figure out remote root device
+      command: >
+        findmnt --noheadings -o SOURCE,UUID -M {{ remote_root|default('/') }}
+      register: remote_root_findmnt
+      when: remote_root_device is undefined
+
+    - set_fact:
+        remote_root_id: "{{ remote_root_device }}"
+      when: remote_root_device is defined
+    - set_fact:
+        remote_root_id: "{{ remote_root_findmnt.stdout_lines[0].split()[1] }}"
+      when:
+        - remote_root_device is undefined
+
+    - name: ensure efibootmgr is installed
+      package: name=efibootmgr state=present
+      when:
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+
+    - name: check if firmware will boot grub
+      shell: >
+        efibootmgr -v | grep -q grub
+      failed_when: False
+      register: grub_in_nvram
+      when:
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+
+    - name: re-install grub 
+      command: grub-install 
+      when:
+        - grub_in_nvram.rc != 0
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+
+    - name: install dracut
+      package: name=dracut state=present
+      when:
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+
+    - name: create initramfs
+      command: >
+        dracut --force --kver "{{ kernel_version }}" "/boot/initrd-{{ kernel_version }}.img"
+      when:
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+
+    - block:
+      - name: set kernel command line, part 1
+        lineinfile:
+          path: /etc/sysconfig/grub2
+          regexp: '^GRUB_CMDLINE_LINUX_DEFAULT[=]'
+          line: "GRUB_CMDLINE_LINUX_DEFAULT='{{ kernel_cmdline }}'"
+
+      - name: set kernel command line, part 2
+        lineinfile:
+          path: /etc/sysconfig/grub2
+          regexp: '^GRUB_CMDLINE_LINUX[=]'
+          line: "GRUB_CMDLINE_LINUX='{{ kernel_cmdline }}'"
+
+      - name: regenerate GRUB config
+        command: update-grub
+
+      - name: set new kernel as GRUB default
+        command: >
+          grub-set-default "gnulinux-{{ kernel_version }}-advanced-{{ remote_root_id }}"
+      vars:
+        kernel_cmdline: 'console=ttyS0,115200n8 ignore_loglevel audit=0 earlycon=uart8250,mmio32,0x20230000'
+
+
+    - name: force all notified handlers to run
+      meta: flush_handlers
+
+    - name: reboot the box
+      reboot:
+        reboot_timeout: 300
+      when:
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+
+    - name: verify if the box runs deployed kernel
+      command: uname -r
+      register: uname_r
+      failed_when: uname_r.rc !=0 or uname_r.stdout.strip() != kernel_version
+      when:
+        - ansible_connection != 'local'
+        - ansible_connection != 'chroot'
+
+  handlers:
+    - name: run ldconfig
+      command: ldconfig

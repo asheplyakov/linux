@@ -1,0 +1,83 @@
+
+ARCH := arm64
+ALTARCH := aarch64
+EXTRA_CONFIGS ?= config-modules
+CROSS_COMPILE := aarch64-linux-gnu-
+ENABLE_INITRAMFS ?= auto
+DISTCC_HOSTS := localhost/12 --localslots_cpp=20 10.42.0.1/8
+PATH := /usr/lib/ccache:/usr/bin:/bin:/sbin:/usr/sbin
+DISTCC_TOOL := distcc
+
+ENV := env PATH='$(PATH)' DISTCC_HOSTS='$(DISTCC_HOSTS)' CCACHE_PREFIX='$(DISTCC_TOOL)' KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+
+.PHONY: all
+
+all: install
+
+.FORCE:
+
+.config: config config-$(ALTARCH) .FORCE
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) mrproper
+	git checkout kernel-image.spec
+	env KCONFIG_CONFIG=.config.new \
+		./scripts/kconfig/merge_config.sh -m config config-$(ALTARCH) $(EXTRA_CONFIGS)
+	if [ -f .config ]; then cp -a .config .config.old; fi
+	cp .config.new .config
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+	oldconfig </dev/null
+	if [ -f .config.old ]; then \
+		if cmp -q .config.old .config; then \
+			mv .config.old .config; \
+		fi; \
+	fi
+
+.PHONY: menuconfig
+menuconfig: .config
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+	menuconfig
+
+.PHONY: kernel
+kernel: .config
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		all
+
+.PHONY: install
+install: kernel
+	rm -rf _inst
+	mkdir -p -m 755 _inst/boot
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		INSTALL_PATH=`pwd`/_inst/boot \
+		INSTALL_MOD_PATH=`pwd`/_inst \
+		install modules_install
+	depmod -b `pwd`/_inst `cat include/config/kernel.release`
+
+
+.PHONY: tarball
+tarball: install
+	kver=`cat include/config/kernel.release`; \
+	if grep -q -e 'CONFIG_MODULE_COMPRESS=y' .config; then Z=''; else Z='z'; fi; \
+	tarball=linux-$$kver-$(ARCH).tgz; \
+	if [ x"$Z" = x ]; then tarball=linux-$$kver-$(ARCH).tar; fi; \
+	fakeroot tar "c${Z}vf" $$tarball -C _inst \
+	boot/vmlinuz-$$kver \
+	boot/config-$$kver \
+	boot/System.map-$$kver \
+	lib/modules/$$kver && echo $$tarball
+
+.PHONY: deploy
+deploy: tarball
+	ansible-playbook -i hosts -e enable_initramfs=$(ENABLE_INITRAMFS) deploy.yml
+
+
+.PHONY: clean
+clean:
+	rm -rf _inst
+	$(ENV) $(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+	clean
+
