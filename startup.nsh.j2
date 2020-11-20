@@ -1,0 +1,1 @@
+fs0:\vmlinuz {% if use_initramfs|default('false')|bool %}initrd=\initrd.img{% endif %} root={{ remote_root_id }} devtmpfs=mount console=ttyS0,115200n8 earlycon=uart8250,mmio32,0x20230000 ignore_loglevel loglevel=8 audit=0

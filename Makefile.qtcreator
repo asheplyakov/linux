@@ -1,0 +1,64 @@
+
+ARCH := arm64
+CROSS_COMPILE := aarch64-linux-gnu-
+DEFCONFIG := mitx_defconfig
+
+all: install
+
+.config: arch/$(ARCH)/configs/$(DEFCONFIG)
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) $(DEFCONFIG)
+
+.PHONY: menuconfig
+menuconfig: .config
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) menuconfig
+
+.PHONY: kernel
+kernel: .config
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		all
+
+.PHONY: install
+install: kernel
+	rm -rf _inst
+	mkdir -p -m 755 _inst/boot
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		INSTALL_PATH=`pwd`/_inst/boot \
+		INSTALL_MOD_PATH=`pwd`/_inst \
+		install modules_install dtbs_install
+	depmod -b `pwd`/_inst `cat include/config/kernel.release`
+
+
+.PHONY: tarball
+tarball: install
+	kver=`cat include/config/kernel.release`; \
+	tarball=linux-$$kver-$(ARCH).tgz; \
+	fakeroot tar czvf $$tarball -C _inst \
+	boot/vmlinuz-$$kver \
+	boot/config-$$kver \
+	boot/dtbs/$$kver \
+	lib/modules/$$kver && echo $$tarball
+
+.PHONY: deploy
+deploy: tarball
+	ansible-playbook -i hosts deploy.yml
+
+
+.PHONY: clean
+clean:
+	rm -rf _inst
+	env PATH=/usr/lib/ccache:$$PATH \
+		KBUILD_BUILD_TIMESTAMP=yyyyyyyyyyyyyyyyyyyyyyyyyyyyy \
+	$(MAKE) \
+		ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		clean
+
