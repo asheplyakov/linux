@@ -114,6 +114,18 @@ static void panfrost_mmu_enable(struct panfrost_device *pfdev, struct panfrost_m
 	/* Need to revisit mem attrs.
 	 * NC is the default, Mali driver is inner WT.
 	 */
+	if (panfrost_model_eq(pfdev, 0x620) && of_device_is_compatible(of_root, "baikal,baikal-m")) {
+		/* Baikal-M GPU integrations is actually io-coherent.
+		 * panfrost supports io-coherent integrations since commit
+		 * 268af50f38b1 which is not in 5.4.y, and backporting it
+		 * is risky (for it requires changes in generic drm code).
+		 * Therefore force outer non-cacheable attribute to avoid
+		 * translation faults and other errors which look like GPU
+		 * is seeing the wrong data
+		 */
+		memattr &= ~0xf0f0f0ULL;
+		memattr |= 0x404040;
+	}
 	mmu_write(pfdev, AS_MEMATTR_LO(as_nr), memattr & 0xffffffffUL);
 	mmu_write(pfdev, AS_MEMATTR_HI(as_nr), memattr >> 32);
 
@@ -177,7 +189,7 @@ u32 panfrost_mmu_as_get(struct panfrost_device *pfdev, struct panfrost_mmu *mmu)
 	atomic_set(&mmu->as_count, 1);
 	list_add(&mmu->list, &pfdev->as_lru_list);
 
-	dev_dbg(pfdev->dev, "Assigned AS%d to mmu %p, alloc_mask=%lx", as, mmu, pfdev->as_alloc_mask);
+	dev_dbg(pfdev->dev, "Assigned AS%d to mmu %px, alloc_mask=%lx", as, mmu, pfdev->as_alloc_mask);
 
 	panfrost_mmu_enable(pfdev, mmu);
 
@@ -278,6 +290,8 @@ int panfrost_mmu_map(struct panfrost_gem_mapping *mapping)
 
 	if (bo->noexec)
 		prot |= IOMMU_NOEXEC;
+	if (bo->is_heap && of_device_is_compatible(of_root, "baikal,baikal-m"))
+		prot |= IOMMU_CACHE;
 
 	sgt = drm_gem_shmem_get_pages_sgt(obj);
 	if (WARN_ON(IS_ERR(sgt)))
