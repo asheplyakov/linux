@@ -514,6 +514,7 @@ KbuildFiles="
 	scripts/bin2c
 	scripts/gcc-version.sh
 	scripts/gcc-goto.sh
+	scripts/module.lds
 	scripts/recordmcount.pl
 	scripts/recordmcount.h
 	scripts/recordmcount.c
