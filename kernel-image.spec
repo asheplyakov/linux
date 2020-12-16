@@ -427,7 +427,7 @@ echo "Kernel built $KernelVer"
 
 %if_enabled docs
 # psdocs, pdfdocs don't work yet
-%make_build SPHINXOPTS="-j %__nprocs" htmldocs
+%make_build SPHINXOPTS="-j $([ %__nprocs -ge 8 ] && echo 8 || echo %__nprocs)" htmldocs
 %endif
 
 %install
