@@ -75,7 +75,7 @@ ExclusiveArch: i586 x86_64 ppc64le aarch64 armh
 
 %define image_path arch/%base_arch/boot/%make_target
 %ifarch ppc64le
-%define image_path %make_target
+%define image_path %make_target.stripped
 %endif
 
 %define arch_dir %base_arch
@@ -394,6 +394,9 @@ scripts/kconfig/merge_config.sh -m $CONFIGS
 %make_build oldconfig
 #%make_build include/linux/version.h
 %make_build %make_target
+%ifarch ppc64le
+eu-strip --remove-comment -o %image_path vmlinux
+%endif
 %make_build modules
 %ifarch aarch64 %arm
 %make_build dtbs
