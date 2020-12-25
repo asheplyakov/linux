@@ -215,12 +215,14 @@ static void baikal_vdu_crtc_helper_enable(struct drm_crtc *crtc,
 	writel(cntl, priv->regs + CR1);
 
 	drm_panel_enable(priv->connector.panel);
+	drm_crtc_vblank_on(crtc);
 }
 
 void baikal_vdu_crtc_helper_disable(struct drm_crtc *crtc)
 {
 	struct baikal_vdu_private *priv = crtc->dev->dev_private;
 
+	drm_crtc_vblank_off(crtc);
 	drm_panel_disable(priv->connector.panel);
 
 	/* Disable and Power Down */
