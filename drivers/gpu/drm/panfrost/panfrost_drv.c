@@ -669,6 +669,8 @@ static const struct of_device_id dt_match[] = {
 	{ .compatible = "arm,mali-t830" },
 	{ .compatible = "arm,mali-t860" },
 	{ .compatible = "arm,mali-t880" },
+	/* BE-M1000 with firmware from SDK-M 4.3 and earlier */
+	{ .compatible = "arm,mali-midgard" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, dt_match);

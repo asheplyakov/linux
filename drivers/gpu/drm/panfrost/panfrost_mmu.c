@@ -643,6 +643,9 @@ int panfrost_mmu_init(struct panfrost_device *pfdev)
 	int err, irq;
 
 	irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "mmu");
+	/* for BE-M1000 with firmware from SDK-M 4.3 or earlier */
+	if (irq <= 0)
+		irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "MMU");
 	if (irq <= 0)
 		return -ENODEV;
 

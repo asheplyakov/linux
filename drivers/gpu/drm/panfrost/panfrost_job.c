@@ -513,6 +513,9 @@ int panfrost_job_init(struct panfrost_device *pfdev)
 	spin_lock_init(&js->job_lock);
 
 	irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "job");
+	/* for BE-M1000 with firmware from SDK-M 4.3 and earlier */
+	if (irq <= 0)
+		irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "JOB");
 	if (irq <= 0)
 		return -ENODEV;
 

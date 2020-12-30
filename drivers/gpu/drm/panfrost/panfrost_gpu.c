@@ -360,6 +360,9 @@ int panfrost_gpu_init(struct panfrost_device *pfdev)
 		DMA_BIT_MASK(FIELD_GET(0xff00, pfdev->features.mmu_features)));
 
 	irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "gpu");
+	/* for BE-M1000 with firmware from SDK-M version 4.3 or earlier */
+	if (irq <= 0)
+		irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "GPU");
 	if (irq <= 0)
 		return -ENODEV;
 
