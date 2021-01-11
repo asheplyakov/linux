@@ -26,9 +26,6 @@
 #include <sound/dmaengine_pcm.h>
 #include "local.h"
 
-#define MASTER_CLK 12000000
-static uint32_t freq;
-
 static inline void i2s_write_reg(void __iomem *io_base, int reg, u32 val)
 {
 	writel(val, io_base + reg);
@@ -103,6 +100,7 @@ static inline void i2s_enable_irqs(struct dw_i2s_dev *dev, u32 stream,
 
 static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 {
+	static int rxor_count;
 	struct dw_i2s_dev *dev = dev_id;
 	bool irq_valid = false;
 	u32 isr[4];
@@ -119,15 +117,19 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 		 * Check if TX fifo is empty. If empty fill FIFO with samples
 		 * NOTE: Only two channels supported
 		 */
-
 		if ((isr[i] & ISR_TXFE) && (i == 0) && dev->use_pio) {
 			dw_pcm_push_tx(dev);
 			irq_valid = true;
 		}
 
-		/* Data available. Record mode not supported in PIO mode */
-		if (isr[i] & ISR_RXDA)
+		/*
+		 * Data available. Retrieve samples from FIFO
+		 * NOTE: Only two channels supported
+		 */
+		if ((isr[i] & ISR_RXDA) && (i == 0) && dev->use_pio) {
+			dw_pcm_pop_rx(dev);
 			irq_valid = true;
+		}
 
 		/* Error Handling: TX */
 		if (isr[i] & ISR_TXFO) {
@@ -137,7 +139,9 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 
 		/* Error Handling: TX */
 		if (isr[i] & ISR_RXFO) {
-			dev_err(dev->dev, "RX overrun (ch_id=%d)\n", i);
+			if ((rxor_count % 1000) == 0)
+				dev_err(dev->dev, "RX overrun (ch_id=%d)\n", i);
+			rxor_count++;
 			irq_valid = true;
 		}
 	}
@@ -187,8 +191,6 @@ static int dw_i2s_startup(struct snd_pcm_substream *substream,
 {
 	struct dw_i2s_dev *dev = snd_soc_dai_get_drvdata(cpu_dai);
 	union dw_i2s_snd_dma_data *dma_data = NULL;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
 	if (!(dev->capability & DWC_I2S_RECORD) &&
 			(substream->stream == SNDRV_PCM_STREAM_CAPTURE))
@@ -204,8 +206,7 @@ static int dw_i2s_startup(struct snd_pcm_substream *substream,
 		dma_data = &dev->capture_dma_data;
 
 	snd_soc_dai_set_dma_data(cpu_dai, substream, (void *)dma_data);
-	snd_soc_dai_set_sysclk(codec_dai, 0,
-			      freq, SND_SOC_CLOCK_IN);
+
 	return 0;
 }
 
@@ -383,7 +384,7 @@ static int dw_i2s_set_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 	return ret;
 }
 
-static struct snd_soc_dai_ops dw_i2s_dai_ops = {
+static const struct snd_soc_dai_ops dw_i2s_dai_ops = {
 	.startup	= dw_i2s_startup,
 	.shutdown	= dw_i2s_shutdown,
 	.hw_params	= dw_i2s_hw_params,
@@ -493,11 +494,17 @@ static int dw_configure_dai(struct dw_i2s_dev *dev,
 			dev->quirks & DW_I2S_QUIRK_COMP_PARAM1)
 		comp1 = comp1 & ~BIT(5);
 
+	if (dev->capability & DWC_I2S_PLAY &&
+			dev->quirks & DW_I2S_QUIRK_COMP_PARAM1)
+		comp1 = comp1 & ~BIT(6);
+
 	if (COMP1_TX_ENABLED(comp1)) {
 		dev_dbg(dev->dev, " designware: play supported\n");
 		idx = COMP1_TX_WORDSIZE_0(comp1);
 		if (WARN_ON(idx >= ARRAY_SIZE(formats)))
 			return -EINVAL;
+		if (dev->quirks & DW_I2S_QUIRK_16BIT_IDX_OVERRIDE)
+			idx = 1;
 		dw_i2s_dai->playback.channels_min = MIN_CHANNEL_NUM;
 		dw_i2s_dai->playback.channels_max =
 				1 << (COMP1_TX_CHANNELS(comp1) + 1);
@@ -510,6 +517,8 @@ static int dw_configure_dai(struct dw_i2s_dev *dev,
 		idx = COMP2_RX_WORDSIZE_0(comp2);
 		if (WARN_ON(idx >= ARRAY_SIZE(formats)))
 			return -EINVAL;
+		if (dev->quirks & DW_I2S_QUIRK_16BIT_IDX_OVERRIDE)
+			idx = 1;
 		dw_i2s_dai->capture.channels_min = MIN_CHANNEL_NUM;
 		dw_i2s_dai->capture.channels_max =
 				1 << (COMP1_RX_CHANNELS(comp1) + 1);
@@ -545,6 +554,8 @@ static int dw_configure_dai_by_pd(struct dw_i2s_dev *dev,
 	if (ret < 0)
 		return ret;
 
+	if (dev->quirks & DW_I2S_QUIRK_16BIT_IDX_OVERRIDE)
+		idx = 1;
 	/* Set DMA slaves info */
 	dev->play_dma_data.pd.data = pdata->play_dma_data;
 	dev->capture_dma_data.pd.data = pdata->capture_dma_data;
@@ -603,33 +614,6 @@ static int dw_configure_dai_by_dt(struct dw_i2s_dev *dev,
 
 }
 
-static int dw_i2s_dai_probe(struct snd_soc_dai *dai)
-{
-	struct dw_i2s_dev *dev = snd_soc_dai_get_drvdata(dai);
-	struct snd_dmaengine_dai_dma_data *playback_dma_data;
-	struct snd_dmaengine_dai_dma_data *capture_dma_data;
-
-	playback_dma_data = devm_kzalloc(dai->dev,
-					 sizeof(*playback_dma_data),
-					 GFP_KERNEL);
-	if (!playback_dma_data)
-		return -ENOMEM;
-
-	capture_dma_data = devm_kzalloc(dai->dev,
-					sizeof(*capture_dma_data),
-					GFP_KERNEL);
-	if (!capture_dma_data)
-		return -ENOMEM;
-
-	playback_dma_data->addr = dev->play_dma_data.pd.addr;
-	capture_dma_data->addr = dev->capture_dma_data.pd.addr;
-
-	playback_dma_data->maxburst = dev->play_dma_data.pd.max_burst;
-	capture_dma_data->maxburst = dev->capture_dma_data.pd.max_burst;
-
-	return 0;
-}
-
 static int dw_i2s_probe(struct platform_device *pdev)
 {
 	const struct i2s_platform_data *pdata = pdev->dev.platform_data;
@@ -638,14 +622,10 @@ static int dw_i2s_probe(struct platform_device *pdev)
 	int ret, irq, irq_num;
 	struct snd_soc_dai_driver *dw_i2s_dai;
 	const char *clk_id;
-	struct device_node *np = pdev->dev.of_node;
-	uint32_t val;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
-	if (!dev) {
-		dev_warn(&pdev->dev, "kzalloc fail\n");
+	if (!dev)
 		return -ENOMEM;
-	}
 
 	dw_i2s_dai = devm_kzalloc(&pdev->dev, sizeof(*dw_i2s_dai), GFP_KERNEL);
 	if (!dw_i2s_dai)
@@ -654,7 +634,6 @@ static int dw_i2s_probe(struct platform_device *pdev)
 	dw_i2s_dai->ops = &dw_i2s_dai_ops;
 	dw_i2s_dai->suspend = dw_i2s_suspend;
 	dw_i2s_dai->resume = dw_i2s_resume;
-	dw_i2s_dai->probe = &dw_i2s_dai_probe;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dev->i2s_base = devm_ioremap_resource(&pdev->dev, res);
@@ -665,7 +644,9 @@ static int dw_i2s_probe(struct platform_device *pdev)
 
 	irq_num = platform_irq_count(pdev);
 
-	if (!irq_num)
+	if (irq_num < 0) /* -EPROBE_DEFER */
+		return irq_num;
+	else if (!irq_num)
 		dev_err(&pdev->dev, "No irq found on device\n");
 
 	do {
@@ -680,7 +661,6 @@ static int dw_i2s_probe(struct platform_device *pdev)
 			}
 		}
 	} while(irq_num--);
-
 
 	dev->i2s_reg_comp1 = I2S_COMP_PARAM_1;
 	dev->i2s_reg_comp2 = I2S_COMP_PARAM_2;
@@ -727,33 +707,23 @@ static int dw_i2s_probe(struct platform_device *pdev)
 	}
 
 	if (!pdata) {
-		ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
-		if (ret == -EPROBE_DEFER) {
-			dev_err(&pdev->dev,
-				"failed to register PCM, deferring probe\n");
-			return ret;
-		} else if (ret) {
-			dev_err(&pdev->dev,
-				"Could not register DMA PCM: %d\n"
-				"falling back to PIO mode\n", ret);
-			dev->use_pio = 1;
+		if (irq >= 0) {
 			ret = dw_pcm_register(pdev);
-			if (ret) {
-				dev_err(&pdev->dev,
-					"Could not register PIO PCM: %d\n",
+			dev->use_pio = true;
+		} else {
+			ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL,
+					0);
+			dev->use_pio = false;
+		}
+
+		if (ret) {
+			dev_err(&pdev->dev, "could not register pcm: %d\n",
 					ret);
-				goto err_clk_disable;
-			}
+			goto err_clk_disable;
 		}
 	}
 
 	pm_runtime_enable(&pdev->dev);
-
-	if (!of_property_read_u32(np, "system-clock-frequency", &val))
-		freq = val;
-	else
-		freq = MASTER_CLK;
-
 	return 0;
 
 err_clk_disable:

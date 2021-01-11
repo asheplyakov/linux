@@ -74,6 +74,14 @@
 
 };
 
+&vdu0 {
+	port {
+		vdu_pads: endpoint {
+			remote-endpoint = <&lcd_panel>;
+		};
+	};
+};
+
 &uart0 {
 	status = "okay";
 };

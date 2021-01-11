@@ -136,10 +136,18 @@
 #define BE_COMPATIBLE
 
 /* Descriptor related defines */
+#ifdef BE_COMPATIBLE
+#define XGBE_TX_DESC_CNT	1024
+#else
 #define XGBE_TX_DESC_CNT	512
+#endif
 #define XGBE_TX_DESC_MIN_FREE	(XGBE_TX_DESC_CNT >> 3)
 #define XGBE_TX_DESC_MAX_PROC	(XGBE_TX_DESC_CNT >> 1)
+#ifdef BE_COMPATIBLE
+#define XGBE_RX_DESC_CNT	4096
+#else
 #define XGBE_RX_DESC_CNT	512
+#endif
 
 #define XGBE_TX_MAX_BUF_SIZE	(0x3fff & ~(64 - 1))
 

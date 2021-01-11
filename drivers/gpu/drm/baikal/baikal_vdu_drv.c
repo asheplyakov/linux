@@ -27,7 +27,6 @@
 #include <linux/dma-buf.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/workqueue.h>
 #include <linux/fb.h>
 
 #include <drm/drmP.h>
@@ -43,7 +42,7 @@
 
 #define DRIVER_NAME                 "baikal-vdu"
 #define DRIVER_DESC                 "DRM module for Baikal VDU"
-#define DRIVER_DATE                 "20200131"
+#define DRIVER_DATE                 "20200611"
 
 #define BAIKAL_SMC_SCP_LOG_DISABLE  0x82000200
 
@@ -97,9 +96,9 @@ static int vdu_modeset_init(struct drm_device *dev)
 	mode_config = &dev->mode_config;
 	mode_config->funcs = &mode_config_funcs;
 	mode_config->min_width = 1;
-	mode_config->max_width = 4096;
+	mode_config->max_width = 4095;
 	mode_config->min_height = 1;
-	mode_config->max_height = 4096;
+	mode_config->max_height = 4095;
 
 	ret = baikal_vdu_primary_plane_init(dev);
 	if (ret != 0) {
@@ -119,13 +118,12 @@ static int vdu_modeset_init(struct drm_device *dev)
 		goto out_config;
 	}
 
-	ret = baikal_vdu_encoder_init(dev);
-	if (ret) {
-		dev_err(dev->dev, "Failed to create DRM encoder\n");
-		goto out_config;
-	}
-
 	if (priv->bridge) {
+		ret = baikal_vdu_encoder_init(dev);
+		if (ret) {
+			dev_err(dev->dev, "Failed to create DRM encoder\n");
+			goto out_config;
+		}
 		priv->bridge->encoder = &priv->encoder;
 		priv->encoder.bridge = priv->bridge;
 		ret = drm_bridge_attach(priv->encoder.dev, priv->bridge);
@@ -137,12 +135,6 @@ static int vdu_modeset_init(struct drm_device *dev)
 		ret = baikal_vdu_connector_create(dev);
 		if (ret) {
 			dev_err(dev->dev, "Failed to create DRM connector\n");
-			goto out_config;
-		}
-		ret = drm_mode_connector_attach_encoder(&priv->connector.connector,
-						&priv->encoder);
-		if (ret != 0) {
-			dev_err(dev->dev, "Failed to attach encoder\n");
 			goto out_config;
 		}
 	} else
@@ -171,8 +163,6 @@ static int vdu_modeset_init(struct drm_device *dev)
 	}
 
 	arm_smccc_smc(BAIKAL_SMC_SCP_LOG_DISABLE, 0, 0, 0, 0, 0, 0, 0, &res);
-	INIT_DEFERRABLE_WORK(&priv->update_work,
-			     baikal_vdu_update_work);
 
 	drm_mode_config_reset(dev);
 
@@ -259,6 +249,7 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+	priv->fb_end = 0;
 
 	drm = drm_dev_alloc(&vdu_drm_driver, dev);
 	if (IS_ERR(drm))
@@ -293,6 +284,11 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 		dev_err(dev, "%s IRQ %d allocation failed\n", __func__, irq);
 		return ret;
 	}
+
+	if (pdev->dev.of_node && of_property_read_bool(pdev->dev.of_node, "lvds-out"))
+		priv->type = VDU_TYPE_LVDS;
+	else
+		priv->type = VDU_TYPE_HDMI;
 
 	ret = vdu_modeset_init(drm);
 	if (ret != 0) {
@@ -333,6 +329,7 @@ static const struct of_device_id baikal_vdu_of_match[] = {
     { .compatible = "baikal,vdu" },
     { },
 };
+MODULE_DEVICE_TABLE(of, baikal_vdu_of_match);
 
 static struct platform_driver baikal_vdu_platform_driver = {
     .probe  = baikal_vdu_drm_probe,
@@ -351,3 +348,4 @@ MODULE_AUTHOR("Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>");
 MODULE_DESCRIPTION("Baikal Electronics BE-M1000 Video Display Unit (VDU) DRM Driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRIVER_NAME);
+MODULE_SOFTDEP("pre: baikal_hdmi");

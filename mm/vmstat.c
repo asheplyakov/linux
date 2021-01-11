@@ -1800,7 +1800,7 @@ static int __init setup_vmstat(void)
 #endif
 	return 0;
 }
-// module_init(setup_vmstat)
+module_init(setup_vmstat)
 
 #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_COMPACTION)
 

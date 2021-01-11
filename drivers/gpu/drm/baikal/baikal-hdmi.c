@@ -88,16 +88,16 @@ static int baikal_hdmi_phy_configure(struct dw_hdmi *hdmi,
 static enum drm_mode_status baikal_hdmi_mode_valid(struct drm_connector *con,
                           const struct drm_display_mode *mode)
 {
-    if (mode->clock < 13500)
-        return MODE_CLOCK_LOW;
+	if (mode->clock < 13500)
+		return MODE_CLOCK_LOW;
 	if (mode->clock >= 340000)
 		return MODE_CLOCK_HIGH;
-    if (fixed_clock && mode->clock != fixed_clock)
-        return MODE_BAD;
-    if (max_clock && mode->clock > max_clock)
-        return MODE_BAD;
+	if (fixed_clock && mode->clock != fixed_clock)
+		return MODE_BAD;
+	else if (max_clock && mode->clock > max_clock)
+		return MODE_BAD;
 
-    return MODE_OK;
+	return MODE_OK;
 }
 
 static const struct dw_hdmi_plat_data baikal_dw_hdmi_plat_data = {

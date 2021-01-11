@@ -70,14 +70,75 @@ static int baikal_vdu_drm_connector_helper_get_modes(
 	return drm_panel_get_modes(vdu_connector->panel);
 }
 
+int baikal_vdu_lvds_set_property(struct drm_connector *connector,
+				       struct drm_property *property,
+				       uint64_t value)
+{
+	struct drm_encoder *encoder = connector->encoder;
+
+	if (!encoder)
+		return -1;
+
+	if (!strcmp(property->name, "scaling mode")) {
+		uint64_t curval;
+		switch (value) {
+		case DRM_MODE_SCALE_FULLSCREEN:
+			break;
+		case DRM_MODE_SCALE_NO_SCALE:
+			break;
+		case DRM_MODE_SCALE_ASPECT:
+			break;
+		default:
+			goto set_prop_error;
+		}
+
+		if (drm_object_property_get_value(&connector->base,
+						     property,
+						     &curval))
+			goto set_prop_error;
+
+		if (curval == value)
+			goto set_prop_done;
+
+		if (drm_object_property_set_value(&connector->base,
+							property,
+							value))
+			goto set_prop_error;
+
+	} else if (!strcmp(property->name, "backlight")) {
+		if (drm_object_property_set_value(&connector->base,
+							property,
+							value))
+			goto set_prop_error;
+		else {
+			// TBD set backlight
+		}
+	} else if (!strcmp(property->name, "DPMS")) {
+		const struct drm_encoder_helper_funcs *hfuncs
+						= encoder->helper_private;
+		hfuncs->dpms(encoder, value);
+	}
+
+set_prop_done:
+	return 0;
+set_prop_error:
+	return -1;
+}
+
+static void baikal_vdu_lvds_encoder_dpms(struct drm_encoder *encoder, int mode)
+{
+	// TBD
+}
+
 const struct drm_connector_funcs connector_funcs = {
+	.dpms = drm_atomic_helper_connector_dpms,
 	.fill_modes = drm_helper_probe_single_connector_modes,
-	.destroy = baikal_vdu_drm_connector_destroy,
 	.detect = baikal_vdu_drm_connector_detect,
-	//.dpms = drm_atomic_helper_connector_dpms, // TODO enable it?
 	.reset = drm_atomic_helper_connector_reset,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+	.set_property = baikal_vdu_lvds_set_property,
+	.destroy = baikal_vdu_drm_connector_destroy,
 };
 
 const struct drm_connector_helper_funcs connector_helper_funcs = {
@@ -86,6 +147,13 @@ const struct drm_connector_helper_funcs connector_helper_funcs = {
 
 static const struct drm_encoder_funcs encoder_funcs = {
 	.destroy = drm_encoder_cleanup,
+};
+
+static const struct drm_encoder_helper_funcs baikal_vdu_lvds_helper_funcs = {
+	.dpms = baikal_vdu_lvds_encoder_dpms,
+	//.prepare = TBD,
+	//.mode_set = TBD,
+	//.commit = TBD,
 };
 
 /* Walks the OF graph to find the endpoint node and then asks DRM 
@@ -98,6 +166,8 @@ int get_panel_or_bridge(struct device *dev,
 	struct device_node *remote;
 	struct device_node *old_remote = NULL;
 	struct device_node *np = dev->of_node;
+	struct drm_device *drm = dev_get_drvdata(dev);
+	struct baikal_vdu_private *priv = drm->dev_private;
 	int ep_count = 0;
 
 	for_each_endpoint_of_node(np, endpoint) {
@@ -132,6 +202,8 @@ int get_panel_or_bridge(struct device *dev,
 		return -EINVAL;
 	}
 
+	priv->ep_count = ep_count;
+
 	return drm_of_find_panel_or_bridge(remote, panel, bridge);
 
 }
@@ -141,10 +213,22 @@ int baikal_vdu_connector_create(struct drm_device *dev)
 	struct baikal_vdu_private *priv = dev->dev_private;
 	struct baikal_vdu_drm_connector *vdu_connector = &priv->connector;
 	struct drm_connector *connector = &vdu_connector->connector;
+	struct drm_encoder *encoder = &priv->encoder;
 
 	drm_connector_init(dev, connector, &connector_funcs,
 			DRM_MODE_CONNECTOR_LVDS);
+	drm_encoder_init(dev, encoder, &encoder_funcs,
+			DRM_MODE_ENCODER_LVDS, NULL);
+	encoder->crtc = &priv->crtc;
+	encoder->possible_crtcs = BIT(drm_crtc_index(encoder->crtc));
+
+	drm_mode_connector_attach_encoder(connector, encoder);
+
+	drm_encoder_helper_add(encoder, &baikal_vdu_lvds_helper_funcs);
 	drm_connector_helper_add(connector, &connector_helper_funcs);
+
+	drm_connector_register(connector);
+
 	drm_panel_attach(vdu_connector->panel, connector);
 
 	return 0;

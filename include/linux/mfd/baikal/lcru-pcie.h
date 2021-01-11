@@ -2,7 +2,7 @@
  * Baikal SoC series Local Clock and Reset Unit (LCRU) register offsets
  * and bit definitions.
  *
- * Copyright (C) 2019 Baikal Electronics JSC.
+ * Copyright (C) 2019-2020 Baikal Electronics JSC.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -106,7 +106,7 @@
 #define BAIKAL_PCIE_LTSSM_ENABLE			(1 << 1)
 
 #define BAIKAL_LCRU_PCIE_POWER_CTL_BASE		0x50010		/* GPR2_RW */
-#define BAIKAL_LCRU_PCIE_POWER_CTL(x)		((x * 0x20) + BAIKAL_LCRU_POWER_CTL_BASE)
+#define BAIKAL_LCRU_PCIE_POWER_CTL(x)		((x * 0x20) + BAIKAL_LCRU_PCIE_POWER_CTL_BASE)
 #define BAIKAL_PCIE_PHY_CLK_REQ				(1 << 27)
 #define BAIKAL_PCIE_APP_CLK_REQ				(1 << 26)
 #define BAIKAL_PCIE_PERSTN					(1 << 25)

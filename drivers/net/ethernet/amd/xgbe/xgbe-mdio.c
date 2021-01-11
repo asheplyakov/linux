@@ -421,28 +421,12 @@ void be_xgbe_phy_config_init(struct xgbe_prv_data *pdata)
 	while(((ret & 0x0004) != 0x0004) && count--);
 }
 
-static int be_xgbe_phy_aneg_done(struct xgbe_prv_data *pdata)
-{
-	int reg;
-	DBGPR("%s\n", __FUNCTION__);
-	reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_STAT1);
-	if (reg < 0)
-		return reg;
-
-	return (reg & MDIO_AN_STAT1_COMPLETE) ? 1 : 0;
-}
-
 static int be_xgbe_phy_update_link(struct xgbe_prv_data *pdata)
 {
 	int new_state = 0;
-    int ret = 0;
-    struct phy_device *phydev;
 
-    if(!pdata || !pdata->phydev)
-            return 1;
-
-    phydev = pdata->phydev;
-    ret = phy_read_mmd(phydev, MDIO_MMD_PHYXS, 0x1001);
+	if(!pdata || !pdata->phydev)
+		return 1;
 
 	if (pdata->phy.link) {
 		/* Flow control support */
@@ -481,95 +465,49 @@ static int be_xgbe_phy_update_link(struct xgbe_prv_data *pdata)
 
 static void be_xgbe_phy_read_status(struct xgbe_prv_data *pdata)
 {
+	int reg;
+    	
+	/* Initially set the link up. 
+	 * Reset if interal or external links are down */
+	pdata->phy.link = 1;
 
-	int reg, link_aneg;
-    pdata->phy.link = 1;
-
-	if (test_bit(XGBE_LINK_ERR, &pdata->dev_state)) {
-		netif_carrier_off(pdata->netdev);
-
-		pdata->phy.link = 0;
-		goto update_link;
-	}
-
-	link_aneg = (pdata->phy.autoneg == AUTONEG_ENABLE);
-
-	/* Check tranceiver status */
+	/* Check the link of external PHY */
 	if (pdata->phydev) {
+		/* read_status has the side effect of updating the link */
 		pdata->phydev->drv->read_status(pdata->phydev);
 		if (!pdata->phydev->link){
-			pdata->phydev->link = 0;
-			pdata->phy.link &= pdata->phydev->link;
-			DBGPR("%s PHY %x\n", __FUNCTION__, pdata->phy.link);
+			pdata->phy.link = 0;
+			DBGPR("External PHY: link is %s\n", 
+			      pdata->phy.link ? "UP" : "DOWN");
 		}
+	} else {
+		DBGPR("%s: there is no external PHY. Error\n");
+		pdata->phy.link = 0;
 	}
+
+	/* Check the link of internal PHY */
 	reg = XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_STAT1);
 	pdata->phy.link &= (reg & MDIO_STAT1_LSTATUS) ? 1 : 0;
-	DBGPR("%s PCS %x\n", __FUNCTION__, reg);
+	DBGPR("%s: PCS: %x\n", pdata->netdev->name, reg);
 
 	reg = XMDIO_READ(pdata, MDIO_MMD_PMAPMD, MDIO_STAT1);
-	DBGPR("%s PMA %x\n", __FUNCTION__, reg);
+	DBGPR("%s: PMA: %x\n", pdata->netdev->name, reg);
 	pdata->phy.link &= (reg & MDIO_STAT1_LSTATUS) ? 1 : 0;
 
 	if (pdata->phy.link) {
-		DBGPR("%s link on\n", __FUNCTION__);
-		if (link_aneg && !be_xgbe_phy_aneg_done(pdata)) {
-			return;
+		if (!netif_carrier_ok(pdata->netdev)) {
+			netif_carrier_on(pdata->netdev);
+			DBGPR("%s: link is UP\n", pdata->netdev->name);
 		}
-
-		if (test_bit(XGBE_LINK_INIT, &pdata->dev_state))
-			clear_bit(XGBE_LINK_INIT, &pdata->dev_state);
-
-		netif_carrier_on(pdata->netdev);
 	} else {
-		DBGPR("%s link off\n", __FUNCTION__);
-		if (test_bit(XGBE_LINK_INIT, &pdata->dev_state)) 
-			if (link_aneg)
-				return;
-
-		netif_carrier_off(pdata->netdev);
+		if (netif_carrier_ok(pdata->netdev)) {
+			netif_carrier_off(pdata->netdev);
+			DBGPR("%s: link is DOWN\n", pdata->netdev->name);
+		}
 	}
 
-update_link:
 	be_xgbe_phy_update_link(pdata);
 }
-
-#if 0
-static int be_xgbe_phy_resume(struct xgbe_prv_data *pdata)
-{
-	int ret;
-	DBGPR("%s\n", __FUNCTION__);
-
-	ret = XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_CTRL1);
-	if (ret < 0)
-		return 1;
-
-	ret &= ~MDIO_CTRL1_LPOWER;
-	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, ret);
-	ret = 0;
-
-	return ret;
-}
-#endif
-
-#if 0
-static int be_xgbe_phy_suspend(struct xgbe_prv_data *pdata)
-{
-	int ret;
-	DBGPR("%s\n", __FUNCTION__);
-
-	ret = XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_CTRL1);
-	if (ret < 0)
-		return 1;
-
-	ret |= MDIO_CTRL1_LPOWER;
-	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, ret);
-
-	ret = 0;
-
-	return ret;
-}
-#endif
 
 static void be_xgbe_phy_stop(struct xgbe_prv_data *pdata)
 {

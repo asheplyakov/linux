@@ -181,11 +181,15 @@ static int baikal_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct arm_smccc_res res;
 	struct baikal_clk_cmu *pclk = to_baikal_cmu(hw);
 	uint32_t cmd;
+	unsigned long parent;
 
-	if (pclk->is_clk_ch)
+	if (pclk->is_clk_ch) {
 		cmd = CMU_CLK_CH_SET_RATE;
-	else
+		parent = pclk->parent;
+	} else {
 		cmd = CMU_PLL_SET_RATE;
+		parent = parent_rate;
+	}
 
 	pr_debug("[%s, %x:%d:%s] %s, %ld\n",
 		pclk->name,
@@ -196,7 +200,7 @@ static int baikal_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		rate);
 
 	arm_smccc_smc(BAIKAL_SMC_LCRU_ID, pclk->cmu_id, cmd, rate,
-			pclk->parent, 0, 0, 0, &res);
+			parent, 0, 0, 0, &res);
 
 	return res.a0;
 }

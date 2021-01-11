@@ -51,17 +51,37 @@
 			reg = <0x90200000 0xfe00000>;
 		};
 	};*/
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "MITX-Sound-Card";
+		simple-audio-card,bitclock-master = <&codec0>;
+		simple-audio-card,frame-master = <&codec0>;
+		simple-audio-card,widgets =
+			"Microphone", "Mic Jack",
+			"Headphone", "Headphones",
+			"Speaker", "AUX Out",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Headphones", "RHP",
+			"Headphones", "LHP",
+			"AUX Out", "AUXOUT1",
+			"AUX Out", "AUXOUT2",
+			"L2", "Mic Jack",
+			"R2", "Mic Jack",
+			"LAUX", "Line In",
+			"RAUX", "Line In";
 
-	panel: panel {
-		compatible = "edt,et057090dhu";
+		simple-audio-card,hp-det-gpio = <&porta 27 GPIO_ACTIVE_LOW>;
+		simple-audio-card,mic-det-gpio = <&porta 26 GPIO_ACTIVE_LOW>;
+		simple-audio-card,format = "i2s";
 
-		port {
-			lcd_panel: endpoint {
-				remote-endpoint = <&vdu_pads>;
-			};
+		simple-audio-card,cpu {
+			sound-dai = <&i2s>;
+		};
+		codec0: simple-audio-card,codec {
+			sound-dai = <&nau8822 0>;
 		};
 	};
-
 };
 
 &uart0 {
@@ -109,7 +129,7 @@
 };
 
 &gpu {
-        system-coherency = <0>;
+	system-coherency = <0>;
 };
 
 &usb2 {
@@ -182,15 +202,40 @@
 		reg = <0x08>;
 	};
 
+	nau8822: nau8822@1a {
+		compatible = "nuvoton,nau8822";
+		#sound-dai-cells = <1>;
+		reg = <0x1a>;
+	};
+
+	gpio@50 {
+		compatible = "nxp,pca9670";
+		#gpio-cells = <2>;
+		gpio-controller;
+		reg = <0x50>;
+	};
+
 	rtc@51 {
 		compatible = "nxp,pcf2129", "nxp,pcf2127";
 		reg = <0x51>;
+	};
+
+	hwmon@52 {
+		compatible = "tp,bm_mitx_hwmon";
+		reg = <0x52>;
 	};
 
 	eeprom@53 {
 		compatible = "atmel,24c32";
 		pagesize = <32>;
 		reg = <0x53>;
+	};
+
+	ps2port@54 {
+		compatible = "tp,tp_serio";
+		reg = <0x54>;
+		interrupt-parent = <&porta>;
+		interrupts = <14 8>;
 	};
 
 };
@@ -210,91 +255,26 @@
 &spi0 {
 	num-cs = <4>;
 
-	cs-gpios =
-		<&porta 24 1>,   /* ss0 xp8  - DD53 normal flash */
-		<&porta 25 1>,   /* ss1 xp9  */
-		<&porta 26 1>,   /* ss2 xp10 */
-		<&porta 27 1>;   /* ss3 xp11 */
+	cs-gpios = <0>;
 	status = "okay";
 
-	/* SPI flash chip #1 */
-	flash0: m25p80@0 {
-		compatible = "micron,n25q256a", "jedec,spi-nor";
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <5000000>;
-		status = "okay";
+};
 
-		/* Flash chip0 partitions */
-		mtd0@00000000 {
-			label = "bl1";
-			reg = <0x00000000 0x00040000>;
-			read-only;
-		};
-
-		mtd1@00040000 {
-			label = "fip";
-			reg = <0x00040000 0x007c0000>;
-		};
-
-		mtd2@00800000 {
-			label = "rescue";
-			reg = <0x00800000 0x01800000>;
-		};
+&porta {
+	pcieclk {
+		line_name = "pcie-x8-clock";
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_LOW>;
+		output-high;
 	};
 };
 
-#if 0
-/* undefined */
-&spi1 {
-	num-cs = <4>;
-	cs-gpios =
-		<&porta 20 1>,   /* ss0 xp15  - DD57 boot flash */
-		<&porta 21 1>,   /* ss1 xp16 */
-		<&porta 22 1>,   /* ss2 xp17 */
-		<&porta 23 1>;   /* ss3 xp18 */
+&i2s {
 	status = "okay";
-
-	/* SPI flash chip #2 */
-	flash0: m25p80@0 {
-		compatible = "micron,n25q256a", "jedec,spi-nor";
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <12500000>;
-		status = "okay";
-
-		/* Flash chip1 partitions */
-		mtd0@00000000 {
-			label = "fip_backup";
-			reg = <0x00000000 0x00400000>;
-			read-only;
-		};
-
-		mtd1@00400000 {
-			label = "env_backup";
-			reg = <0x00400000 0x00100000>;
-			read-only;
-		};
-
-		mtd2@00500000 {
-			label = "data1";
-			reg = <0x00500000 0x01b00000>;
-		};
-	};
+	system-clock-frequency = <12000000>;
+	#sound-dai-cells = <0>;
 };
-#endif
 
-&espi0 {
-	cs-gpios = <&porta 28 1>;   /* todo: get real gpio */
-	status = "okay";
-
-	/* test device #0 */
-	espi_test0 {
-		compatible = "rohm,dh2228fv"; /* same as spidev */
-		reg = <0>;
-		spi-max-frequency = <12000000>;
-		status = "okay";
-	};
+&mdio0 {
+	status = "disabled";
 };

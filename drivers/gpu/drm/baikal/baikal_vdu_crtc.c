@@ -67,7 +67,7 @@ irqreturn_t baikal_vdu_irq(int irq, void *data)
 	irq_stat = readl(priv->regs + IVR);
 	raw_stat = readl(priv->regs + ISR);
 
-	if (irq_stat & INTR_VCT) {
+	if (irq_stat & INTR_BAU) {
 		priv->counters[10]++;
 		drm_crtc_handle_vblank(&priv->crtc);
 		status = IRQ_HANDLED;
@@ -140,8 +140,13 @@ static void baikal_vdu_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 	drm_mode_debug_printmodeline(mode);
 
 	ppl = mode->hdisplay / 16;
-	hsw = mode->hsync_end - mode->hsync_start - 1;
-	hfp = mode->hsync_start - mode->hdisplay;
+	if (priv->connector.panel) {
+		hsw = mode->hsync_end - mode->hsync_start;
+		hfp = mode->hsync_start - mode->hdisplay - 1;
+	} else {
+		hsw = mode->hsync_end - mode->hsync_start - 1;
+		hfp = mode->hsync_start - mode->hdisplay;
+	}
 	hbp = mode->htotal - mode->hsync_end;
 
 	lpp = mode->vdisplay;
@@ -193,24 +198,44 @@ static void baikal_vdu_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 static void baikal_vdu_crtc_helper_enable(struct drm_crtc *crtc)
 {
 	struct baikal_vdu_private *priv = crtc->dev->dev_private;
-	u32 cntl;
+	struct drm_panel *panel = priv->connector.panel;
+	struct device_node *panel_node;
+	const char *data_mapping;
+	u32 cntl, gpio;
 
 	DRM_DEV_DEBUG_DRIVER(crtc->dev->dev, "enabling pixel clock\n");
 	clk_prepare_enable(priv->clk);
 
-	drm_panel_prepare(priv->connector.panel);
+	drm_panel_prepare(panel);
 
-	writel(ISCR_VSC_VFP, priv->regs + ISCR);
-
-	/* release clock reset; enable clocking */
-	cntl = readl(priv->regs + PCTR);
-	cntl |= PCTR_PCR + PCTR_PCI;
-	writel(cntl, priv->regs + PCTR);
-
-	/* Set 16-word input FIFO watermark and 24-bit LCD interface mode */
+	/* Set 16-word input FIFO watermark */
 	/* Enable and Power Up */
 	cntl = readl(priv->regs + CR1);
-	cntl |= CR1_LCE + CR1_FDW_16_WORDS + CR1_OPS_LCD24;
+	cntl &= ~CR1_FDW_MASK;
+	cntl |= CR1_LCE + CR1_FDW_16_WORDS;
+
+	if (priv->type == VDU_TYPE_LVDS) {
+		panel_node = panel->dev->of_node;
+		if (of_property_read_string(panel_node, "data-mapping", &data_mapping)) {
+			cntl |= CR1_OPS_LCD18;
+		} else if (strncmp(data_mapping, "vesa-24", 7))
+			cntl |= CR1_OPS_LCD24;
+		else if (strncmp(data_mapping, "jeida-18", 8))
+			cntl |= CR1_OPS_LCD18;
+		else {
+			dev_warn(crtc->dev->dev, "%s data mapping is not supported, vesa-24 is set\n", data_mapping);
+			cntl |= CR1_OPS_LCD24;
+		}
+		gpio = GPIOR_UHD_ENB;
+		if (priv->ep_count == 4)
+			gpio |= GPIOR_UHD_QUAD_PORT;
+		else if (priv->ep_count == 2)
+			gpio |= GPIOR_UHD_DUAL_PORT;
+		else
+			gpio |= GPIOR_UHD_SNGL_PORT;
+		writel(gpio, priv->regs + GPIOR);
+	} else
+		cntl |= CR1_OPS_LCD24;
 	writel(cntl, priv->regs + CR1);
 
 	drm_panel_enable(priv->connector.panel);
@@ -221,9 +246,6 @@ void baikal_vdu_crtc_helper_disable(struct drm_crtc *crtc)
 	struct baikal_vdu_private *priv = crtc->dev->dev_private;
 
 	drm_panel_disable(priv->connector.panel);
-
-	/* Disable and Power Down */
-	//writel(0, priv->regs + CR1);
 
 	drm_panel_unprepare(priv->connector.panel);
 
@@ -258,7 +280,7 @@ int baikal_vdu_enable_vblank(struct drm_device *drm, unsigned int crtc)
 	/* clear interrupt status */
 	writel(0x3ffff, priv->regs + ISR);
 
-	writel(INTR_VCT + INTR_FER, priv->regs + IMR);
+	writel(INTR_BAU + INTR_FER, priv->regs + IMR);
 
 	return 0;
 }

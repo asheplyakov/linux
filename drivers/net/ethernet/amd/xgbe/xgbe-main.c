@@ -343,36 +343,35 @@ static struct platform_device *xgbe_get_phy_pdev(struct xgbe_prv_data *pdata)
 }
 
 #ifdef BE_COMPATIBLE 
-static int ext_phy_probe(struct device *pdev)
+static void * ext_phy_probe(struct device *pdev)
 {
-        struct device_node *xmit_node;
+	struct device_node *xmit_node;
         struct phy_device *phydev;
         struct device *dev = pdev;
         int ret;
      
-       /* Retrieve the xmit-handle */
+	/* Retrieve the xmit-handle */
         xmit_node = of_parse_phandle(dev->of_node, "phy-handle", 0); 
         if (!xmit_node) {
-        dev_info(dev, "no phy-handle, work in KR/KX mode\n");
-                return -ENODEV;
+        	dev_info(dev, "there is no appropriate phy-handle\n");
+                return NULL;
         }
      
-       phydev = of_phy_find_device(xmit_node);
-        if (!phydev)
-       {
-                return -EINVAL;
-       }
+	phydev = of_phy_find_device(xmit_node);
+	if (!phydev)
+	{
+		dev_info(dev, "no external PHY\n");
+                return NULL;
+	}
     
-       ret = phy_init_hw(phydev);
-        if (ret < 0)
-       {
-                return ret;
-       }
+	ret = phy_init_hw(phydev);
+	if (ret < 0)
+		return NULL;
 
         phydev->speed = SPEED_10000;
         phydev->duplex = DUPLEX_FULL;
 
-        return 0;
+        return (void *)phydev;
 }
 #endif
 
@@ -426,12 +425,14 @@ static int xgbe_probe(struct platform_device *pdev)
 	phy_dev = &phy_pdev->dev;
 
 #ifdef BE_COMPATIBLE
-        if(ext_phy_probe(dev)) {
-                pr_info("XGMAC: can't probe external phy\n");
+	pdata->phydev = ext_phy_probe(dev);
+        if(!pdata->phydev) {
+                dev_info(dev, "XGMAC: can't probe external phy\n");
 		goto err_phydev;
 		
-	} else
-                pr_info("XGMAC: successfully probe external phy\n");
+	} else {
+                dev_info(dev, "XGMAC: successfully probe external phy\n");
+	}
 #endif
 
 	if (pdev == phy_pdev) {

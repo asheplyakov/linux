@@ -22,34 +22,11 @@ config ARCH_BAIKAL
 	select SYS_HAS_EARLY_PRINTK
 	select GPIOLIB
 	select OF_GPIO
-	select ARCH_NR_GPIO
 	select GENERIC_CLOCKEVENTS
 	select DW_APB_TIMER
 	select DW_APB_TIMER_OF
 	select SENSORS_PVT
 	select I2C_BAIKAL_SMBUS
-	help
-	  This enables support for Baikal Electronics Baikal-M SoC Family
-
-config ARCH_BAIKAL_REAL
-	bool "Baikal Electronics Baikal-M SoC Family REAL"
-	select GPIOLIB
-	select PINCTRL
-	select OF_GPIO
-	select GPIO_SYSFS
-	select GPIO_DWAPB
-	select GPIO_GENERIC
-	select STMMAC_ETH
-	select STMMAC_PLATFORM
-	select STMMAC_DEBUG_FS
-	select PHYLIB
-	select DEBUG_LL
-	select TIMER_GENERIC
-	select ARCH_WANT_OPTIONAL_GPIOLIB
-	select SPI_DESIGNWARE
-	select SPI_DW_MMIO
-	select DW_APB_TIMER
-	select DW_APB_TIMER_OF
 	help
 	  This enables support for Baikal Electronics Baikal-M SoC Family
 
@@ -263,13 +240,15 @@ config ARCH_ZX
 	  This enables support for ZTE ZX SoC Family
 
 config ARCH_NR_GPIO
-    int "Baikal GPIOs plus architecture specific ones"
-    range 32 512
-    default 32
-    help
-      Maximum number of GPIOs in the system.
+	int "Architecture specific max number of GPIOs"
+	range 32 512
+	default 64 if ARCH_BAIKAL
+	default 512
+	help
+	  Maximum number of GPIOs in the system.
+	  This includes SoC GPIOs plus a number of GPIOs on expanders
 
-      If unsure, leave the default value.
+	  If unsure, leave the default value.
 
 config ARCH_ZYNQMP
 	bool "Xilinx ZynqMP Family"

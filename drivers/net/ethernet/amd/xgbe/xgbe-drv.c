@@ -648,16 +648,25 @@ static void xgbe_napi_enable(struct xgbe_prv_data *pdata, unsigned int add)
 		channel = pdata->channel;
 		for (i = 0; i < pdata->channel_count; i++, channel++) {
 			if (add)
+#ifdef BE_COMPATIBLE
+				netif_napi_add(pdata->netdev, &channel->napi,
+					       xgbe_one_poll, 256);
+#else
 				netif_napi_add(pdata->netdev, &channel->napi,
 					       xgbe_one_poll, NAPI_POLL_WEIGHT);
+#endif
 
 			napi_enable(&channel->napi);
 		}
 	} else {
 		if (add)
+#ifdef BE_COMPATIBLE
+			netif_napi_add(pdata->netdev, &pdata->napi,
+				       xgbe_all_poll, 256);
+#else
 			netif_napi_add(pdata->netdev, &pdata->napi,
 				       xgbe_all_poll, NAPI_POLL_WEIGHT);
-
+#endif
 		napi_enable(&pdata->napi);
 	}
 }
@@ -2031,7 +2040,11 @@ static int xgbe_rx_poll(struct xgbe_channel *channel, int budget)
 read_again:
 		rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
 
+#ifdef BE_COMPATIBLE
+		if (xgbe_rx_dirty_desc(ring) > (XGBE_RX_DESC_CNT >> 4))
+#else
 		if (xgbe_rx_dirty_desc(ring) > (XGBE_RX_DESC_CNT >> 3))
+#endif
 			xgbe_rx_refresh(channel);
 
 		if (hw_if->dev_read(channel))
