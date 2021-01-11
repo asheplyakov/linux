@@ -741,20 +741,31 @@ static void stmmac_adjust_link(struct net_device *dev)
 						 fc, pause_time);
 
 		if (phydev->speed != priv->speed) {
+//			pr_info("Update speed %d\n", phydev->speed);
+//			if (priv->tx2_clk != NULL)
+//				pr_info("crnt clk %ld\n", clk_get_rate(priv->tx2_clk));
 			new_state = 1;
 			switch (phydev->speed) {
 			case 1000:
 				if (likely((priv->plat->has_gmac) ||
 					   (priv->plat->has_gmac4)))
 					ctrl &= ~priv->hw->link.port;
+				if (priv->tx2_clk != NULL)
+					clk_set_rate(priv->tx2_clk, 250000000);
 				stmmac_hw_fix_mac_speed(priv);
 				break;
 			case 100:
 			case 10:
+				if (priv->tx2_clk != NULL)
+					clk_set_rate(priv->tx2_clk, phydev->speed == 100 ? 50000000 : 5000000);
 				if (likely((priv->plat->has_gmac) ||
 					   (priv->plat->has_gmac4))) {
 					ctrl |= priv->hw->link.port;
+#ifdef CONFIG_BAIKAL_ERRATA_GMAC
+					if (phydev->speed == SPEED_10) {
+#else
 					if (phydev->speed == SPEED_100) {
+#endif
 						ctrl |= priv->hw->link.speed;
 					} else {
 						ctrl &= ~(priv->hw->link.speed);
@@ -772,6 +783,8 @@ static void stmmac_adjust_link(struct net_device *dev)
 			}
 
 			priv->speed = phydev->speed;
+//			if (priv->tx2_clk != NULL)
+//				pr_info("new clk %ld\n", clk_get_rate(priv->tx2_clk));
 		}
 
 		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
@@ -1619,6 +1632,17 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
 		dev_err(priv->device, "Failed to reset the dma\n");
 		return ret;
 	}
+
+#if defined(CONFIG_MIPS_BAIKAL) || 1
+	/* Need to reinitialize PHY since it has just been reset */
+	if (priv->plat->mdio_bus_data->delays[2])
+		msleep(DIV_ROUND_UP(priv->plat->mdio_bus_data->delays[2], 1000));
+	ret = phy_init_hw(priv->phydev);
+	if (ret) {
+		dev_err(priv->device, "Failed to reinit PHY\n");
+		return ret;
+	}
+#endif
 
 	priv->hw->dma->init(priv->ioaddr, pbl, fixed_burst, mixed_burst,
 			    aal, priv->dma_tx_phy, priv->dma_rx_phy, atds);
@@ -3205,7 +3229,7 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
 	/* Get the HW capability (new GMAC newer than 3.50a) */
 	priv->hw_cap_support = stmmac_get_hw_features(priv);
 	if (priv->hw_cap_support) {
-		pr_info(" DMA HW capability register supported");
+		pr_info(" DMA HW capability register supported\n");
 
 		/* We can override some gmac/dma configuration fields: e.g.
 		 * enh_desc, tx_coe (e.g. that are passed through the
@@ -3326,6 +3350,14 @@ int stmmac_dvr_probe(struct device *device,
 		}
 	}
 	clk_prepare_enable(priv->stmmac_clk);
+
+	priv->tx2_clk = devm_clk_get(priv->device, "tx2_clk");
+	if (IS_ERR(priv->tx2_clk)) {
+		dev_warn(priv->device, "%s: warning: cannot get TX2 clock\n",
+			 __func__);
+		priv->tx2_clk = NULL;
+	}
+//	clk_prepare_enable(priv->tx2_clk);
 
 	priv->pclk = devm_clk_get(priv->device, "pclk");
 	if (IS_ERR(priv->pclk)) {

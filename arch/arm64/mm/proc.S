@@ -469,5 +469,6 @@ ENDPROC(__cpu_setup)
 	.type	crval, #object
 crval:
 	.word	0xfcffffff			// clear
-	.word	0x34d5d91d			// set
+	.word	0x34d5d91d
+//	.word	0x34d5c919			// set
 	.popsection

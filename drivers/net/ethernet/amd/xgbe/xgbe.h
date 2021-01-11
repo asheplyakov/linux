@@ -132,6 +132,9 @@
 #define XGBE_DRV_VERSION	"1.0.2"
 #define XGBE_DRV_DESC		"AMD 10 Gigabit Ethernet Driver"
 
+/* Compatibility with Baikal-M XGBE */
+#define BE_COMPATIBLE
+
 /* Descriptor related defines */
 #define XGBE_TX_DESC_CNT	512
 #define XGBE_TX_DESC_MIN_FREE	(XGBE_TX_DESC_CNT >> 3)
@@ -163,7 +166,11 @@
 /* DMA cache settings - Outer sharable, write-back, write-allocate */
 #define XGBE_DMA_OS_AXDOMAIN	0x2
 #define XGBE_DMA_OS_ARCACHE	0xb
+#ifdef BE_COMPATIBLE
+#define XGBE_DMA_OS_AWCACHE	0x7
+#else
 #define XGBE_DMA_OS_AWCACHE	0xf
+#endif
 
 /* DMA cache settings - System, no caches used */
 #define XGBE_DMA_SYS_AXDOMAIN	0x3
@@ -241,6 +248,51 @@
 #define XGBE_RSS_MAX_TABLE_SIZE		256
 #define XGBE_RSS_LOOKUP_TABLE_TYPE	0
 #define XGBE_RSS_HASH_KEY_TYPE		1
+
+#ifdef BE_COMPATIBLE
+#ifndef MDIO_AN_INTMASK
+#define MDIO_AN_INTMASK				0x8001
+#endif
+#ifndef MDIO_AN_INT
+#define MDIO_AN_INT				0x8002
+#endif
+#ifndef PORT_BACKPLANE
+#define PORT_BACKPLANE				0x06
+#endif
+
+#ifndef VR_XS_PMA_MII_Gen5_MPLL_CTRL
+#define VR_XS_PMA_MII_Gen5_MPLL_CTRL 	0x807A
+#endif
+#define VR_XS_PMA_MII_Gen5_MPLL_CTRL_REF_CLK_SEL_bit	(1 << 13)
+#define VR_XS_PCS_DIG_CTRL1			0x8000
+#define VR_XS_PCS_DIG_CTRL1_VR_RST_Bit		MDIO_CTRL1_RESET
+#define SR_XC_or_PCS_MMD_Control1		MDIO_CTRL1
+#define SR_XC_or_PCS_MMD_Control1_RST_Bit	MDIO_CTRL1_RESET
+#define DWC_GLBL_PLL_MONITOR			0x8010
+#define SDS_PCS_CLOCK_READY_mask		0x1C
+#define SDS_PCS_CLOCK_READY_bit			0x10
+
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL                  0x809C
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LANE_MODE_KX4    (4 << 0)
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LANE_MODE_MASK   0x0007
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LINK_WIDTH_4     (2 << 8)
+#define VR_XS_PMA_MII_ENT_GEN5_GEN_CTL_LINK_WIDTH_MASK  0x0700
+#define VR_XS_OR_PCS_MMD_DIGITAL_CTL1_VR_RST            (1 << 15)
+
+#ifndef MDIO_CTRL1_SPEED1G
+#define MDIO_CTRL1_SPEED1G			(MDIO_CTRL1_SPEED10G & ~BMCR_SPEED100)
+#endif
+
+enum be_xgbe_phy_mode {
+	BE_XGBE_MODE_KR,
+	BE_XGBE_MODE_KX,
+};
+
+enum be_xgbe_phy_speedset {
+	BE_XGBE_PHY_SPEEDSET_1000_10000,
+	BE_XGBE_PHY_SPEEDSET_2500_10000,
+};
+#endif
 
 /* Auto-negotiation */
 #define XGBE_AN_MS_TIMEOUT		500
@@ -442,8 +494,16 @@ struct xgbe_channel {
 	void __iomem *dma_regs;
 
 	/* Per channel interrupt irq number */
+#ifdef BE_COMPATIBLE
+	int dma_irq_tx;
+	int dma_irq_rx;
+
+	char dma_irq_name_tx[IFNAMSIZ + 32];
+	char dma_irq_name_rx[IFNAMSIZ + 32];
+#else
 	int dma_irq;
 	char dma_irq_name[IFNAMSIZ + 32];
+#endif
 
 	/* Netdev related settings */
 	struct napi_struct napi;
@@ -760,6 +820,11 @@ struct xgbe_prv_data {
 	struct platform_device *pdev;
 	struct acpi_device *adev;
 	struct device *dev;
+
+#ifdef BE_COMPATIBLE
+	/* phydevice - tranciever */
+    	struct phy_device *phydev;
+#endif
 
 	/* ACPI or DT flag */
 	unsigned int use_acpi;

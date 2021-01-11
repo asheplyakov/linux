@@ -109,6 +109,7 @@ struct stmmac_priv {
 	int wolopts;
 	int wol_irq;
 	struct clk *stmmac_clk;
+	struct clk *tx2_clk;
 	struct clk *pclk;
 	struct reset_control *stmmac_rst;
 	int clk_csr;

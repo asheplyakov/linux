@@ -170,7 +170,22 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
 				goto err_irq;
 			}
 
+#ifdef BE_COMPATIBLE
+			channel->dma_irq_tx = ret;
+
+			/* rx */
+			ret = platform_get_irq(pdata->pdev, i + 9);
+			if (ret < 0) {
+				netdev_err(pdata->netdev,
+					   "platform_get_irq %u failed\n",
+					   i + 9);
+				goto err_irq;
+			}
+
+			channel->dma_irq_rx = ret;
+#else
 			channel->dma_irq = ret;
+#endif
 		}
 
 		if (i < pdata->tx_ring_count) {
@@ -183,10 +198,17 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
 			channel->rx_ring = rx_ring++;
 		}
 
+#ifdef BE_COMPATIBLE
+		netif_dbg(pdata, drv, pdata->netdev,
+			  "%s: dma_regs=%p, dma_irq_tx=%d, dma_irq_rx=%d, tx=%p, rx=%p\n",
+			  channel->name, channel->dma_regs, channel->dma_irq_tx, channel->dma_irq_rx,
+			  channel->tx_ring, channel->rx_ring);
+#else
 		netif_dbg(pdata, drv, pdata->netdev,
 			  "%s: dma_regs=%p, dma_irq=%d, tx=%p, rx=%p\n",
 			  channel->name, channel->dma_regs, channel->dma_irq,
 			  channel->tx_ring, channel->rx_ring);
+#endif
 	}
 
 	pdata->channel = channel_mem;
@@ -401,16 +423,29 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
 {
 	struct xgbe_channel *channel = data;
 
+#ifdef BE_COMPATIBLE
+	unsigned int dma_ch_isr; 
+
+	dma_ch_isr = XGMAC_DMA_IOREAD(channel, DMA_CH_SR); 
+#endif
 	/* Per channel DMA interrupts are enabled, so we use the per
 	 * channel napi structure and not the private data napi structure
 	 */
 	if (napi_schedule_prep(&channel->napi)) {
 		/* Disable Tx and Rx interrupts */
+#ifdef BE_COMPATIBLE
+		disable_irq_nosync(channel->dma_irq_tx);
+		disable_irq_nosync(channel->dma_irq_rx);
+#else
 		disable_irq_nosync(channel->dma_irq);
+#endif
 
 		/* Turn on polling */
 		__napi_schedule_irqoff(&channel->napi);
 	}
+#ifdef BE_COMPATIBLE
+	XGMAC_DMA_IOWRITE(channel, DMA_CH_SR, dma_ch_isr); 
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -427,8 +462,14 @@ static void xgbe_tx_timer(unsigned long data)
 
 	if (napi_schedule_prep(napi)) {
 		/* Disable Tx and Rx interrupts */
-		if (pdata->per_channel_irq)
+		if (pdata->per_channel_irq) {
+#ifdef BE_COMPATIBLE
+			disable_irq_nosync(channel->dma_irq_tx);
+			disable_irq_nosync(channel->dma_irq_rx);
+#else
 			disable_irq_nosync(channel->dma_irq);
+#endif
+		}
 		else
 			xgbe_disable_rx_tx_ints(pdata);
 
@@ -662,6 +703,37 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
 
 	channel = pdata->channel;
 	for (i = 0; i < pdata->channel_count; i++, channel++) {
+#ifdef BE_COMPATIBLE
+		/* tx */
+		snprintf(channel->dma_irq_name_tx,
+			 sizeof(channel->dma_irq_name_tx) - 1,
+			 "%s-Tx-%u", netdev_name(netdev),
+			 channel->queue_index);
+
+		ret = devm_request_irq(pdata->dev, channel->dma_irq_tx,
+				       xgbe_dma_isr, 0,
+				       channel->dma_irq_name_tx, channel);
+		if (ret) {
+			netdev_alert(netdev, "error requesting tx irq %d\n",
+				     channel->dma_irq_tx);
+			goto err_irq;
+		}
+
+		/* rx */
+		snprintf(channel->dma_irq_name_rx,
+			 sizeof(channel->dma_irq_name_rx) - 1,
+			 "%s-Rx-%u", netdev_name(netdev),
+			 channel->queue_index);
+
+		ret = devm_request_irq(pdata->dev, channel->dma_irq_rx,
+				       xgbe_dma_isr, 0,
+				       channel->dma_irq_name_rx, channel);
+		if (ret) {
+			netdev_alert(netdev, "error requesting rx irq %d\n",
+				     channel->dma_irq_rx);
+			goto err_irq;
+		}
+#else
 		snprintf(channel->dma_irq_name,
 			 sizeof(channel->dma_irq_name) - 1,
 			 "%s-TxRx-%u", netdev_name(netdev),
@@ -675,14 +747,22 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
 				     channel->dma_irq);
 			goto err_irq;
 		}
+#endif
 	}
 
 	return 0;
 
 err_irq:
 	/* Using an unsigned int, 'i' will go to UINT_MAX and exit */
+#ifdef BE_COMPATIBLE
+	for (i--, channel--; i < pdata->channel_count; i--, channel--) {
+		devm_free_irq(pdata->dev, channel->dma_irq_tx, channel);
+		devm_free_irq(pdata->dev, channel->dma_irq_rx, channel);
+	}
+#else
 	for (i--, channel--; i < pdata->channel_count; i--, channel--)
 		devm_free_irq(pdata->dev, channel->dma_irq, channel);
+#endif
 
 	devm_free_irq(pdata->dev, pdata->dev_irq, pdata);
 
@@ -700,8 +780,15 @@ static void xgbe_free_irqs(struct xgbe_prv_data *pdata)
 		return;
 
 	channel = pdata->channel;
+#ifdef BE_COMPATIBLE
+	for (i = 0; i < pdata->channel_count; i++, channel++) {
+		devm_free_irq(pdata->dev, channel->dma_irq_tx, channel);
+		devm_free_irq(pdata->dev, channel->dma_irq_rx, channel);
+	}
+#else
 	for (i = 0; i < pdata->channel_count; i++, channel++)
 		devm_free_irq(pdata->dev, channel->dma_irq, channel);
+#endif
 }
 
 void xgbe_init_tx_coalesce(struct xgbe_prv_data *pdata)
@@ -881,9 +968,11 @@ static int xgbe_start(struct xgbe_prv_data *pdata)
 	if (ret)
 		return ret;
 
+#ifndef BE_COMPATIBLE 
 	ret = phy_if->phy_start(pdata);
 	if (ret)
 		goto err_phy;
+#endif
 
 	xgbe_napi_enable(pdata, 1);
 
@@ -908,8 +997,10 @@ err_napi:
 
 	phy_if->phy_stop(pdata);
 
+#ifndef BE_COMPATIBLE
 err_phy:
 	hw_if->exit(pdata);
+#endif
 
 	return ret;
 }
@@ -1299,10 +1390,12 @@ static int xgbe_open(struct net_device *netdev)
 
 	DBGPR("-->xgbe_open\n");
 
+#ifndef BE_COMPATIBLE
 	/* Initialize the phy */
 	ret = xgbe_phy_init(pdata);
 	if (ret)
 		return ret;
+#endif
 
 	/* Enable the clocks */
 	ret = clk_prepare_enable(pdata->sysclk);
@@ -1316,6 +1409,15 @@ static int xgbe_open(struct net_device *netdev)
 		netdev_alert(netdev, "ptp clk_prepare_enable failed\n");
 		goto err_sysclk;
 	}
+
+#ifdef BE_COMPATIBLE
+	/* Initialize the phy */
+	ret = xgbe_phy_init(pdata);
+	if (ret)
+		return ret;
+
+	pdata->phy_if.phy_init(pdata);
+#endif
 
 	/* Calculate the Rx buffer size before allocating rings */
 	ret = xgbe_calc_rx_buf_size(netdev, netdev->mtu);
@@ -2083,7 +2185,12 @@ static int xgbe_one_poll(struct napi_struct *napi, int budget)
 		napi_complete_done(napi, processed);
 
 		/* Enable Tx and Rx interrupts */
+#ifdef BE_COMPATIBLE
+		enable_irq(channel->dma_irq_tx);
+		enable_irq(channel->dma_irq_rx);
+#else
 		enable_irq(channel->dma_irq);
+#endif
 	}
 
 	DBGPR("<--xgbe_one_poll: received = %d\n", processed);

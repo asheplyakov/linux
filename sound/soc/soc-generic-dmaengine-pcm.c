@@ -395,6 +395,7 @@ static int dmaengine_pcm_request_chan_of(struct dmaengine_pcm *pcm,
 			if (PTR_ERR(chan) == -EPROBE_DEFER)
 				return -EPROBE_DEFER;
 			pcm->chan[i] = NULL;
+			return PTR_ERR(chan);
 		} else {
 			pcm->chan[i] = chan;
 		}

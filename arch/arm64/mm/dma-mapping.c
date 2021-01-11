@@ -28,6 +28,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/vmalloc.h>
 #include <linux/swiotlb.h>
+#include <linux/platform_device.h>
 
 #include <asm/cacheflush.h>
 
@@ -977,4 +978,26 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 
 	dev->archdata.dma_coherent = coherent;
 	__iommu_setup_dma_ops(dev, dma_base, size, iommu);
+}
+
+
+
+void arch_setup_pdev_archdata(struct platform_device *pdev)
+{
+	if (!pdev->dev.archdata.dma_ops)
+		pdev->dev.archdata.dma_ops = &swiotlb_dma_ops;
+
+	/*
+	 * Set default coherent_dma_mask to 64 bit. Drivers are expected to
+	 * setup the correct supported mask.
+	 */
+	if (!pdev->dev.coherent_dma_mask)
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+
+	/*
+	 * Set it to coherent_dma_mask by default if the architecture
+	 * code has not set it.
+	 */
+	if (!pdev->dev.dma_mask)
+		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 }

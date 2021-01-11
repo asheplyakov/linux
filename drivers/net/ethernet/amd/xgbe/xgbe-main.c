@@ -133,6 +133,10 @@
 #include "xgbe.h"
 #include "xgbe-common.h"
 
+#ifdef BE_COMPATIBLE
+#include <linux/of_mdio.h>
+#endif
+
 MODULE_AUTHOR("Tom Lendacky <thomas.lendacky@amd.com>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_VERSION(XGBE_DRV_VERSION);
@@ -273,7 +277,12 @@ static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
 	struct device_node *phy_node;
 	struct platform_device *phy_pdev;
 
+#ifndef BE_COMPATIBLE
 	phy_node = of_parse_phandle(dev->of_node, "phy-handle", 0);
+#else
+	phy_node = NULL;
+#endif
+
 	if (phy_node) {
 		/* Old style device tree:
 		 *   The XGBE and PHY resources are separate
@@ -333,6 +342,40 @@ static struct platform_device *xgbe_get_phy_pdev(struct xgbe_prv_data *pdata)
 	return phy_pdev;
 }
 
+#ifdef BE_COMPATIBLE 
+static int ext_phy_probe(struct device *pdev)
+{
+        struct device_node *xmit_node;
+        struct phy_device *phydev;
+        struct device *dev = pdev;
+        int ret;
+     
+       /* Retrieve the xmit-handle */
+        xmit_node = of_parse_phandle(dev->of_node, "phy-handle", 0); 
+        if (!xmit_node) {
+        dev_info(dev, "no phy-handle, work in KR/KX mode\n");
+                return -ENODEV;
+        }
+     
+       phydev = of_phy_find_device(xmit_node);
+        if (!phydev)
+       {
+                return -EINVAL;
+       }
+    
+       ret = phy_init_hw(phydev);
+        if (ret < 0)
+       {
+                return ret;
+       }
+
+        phydev->speed = SPEED_10000;
+        phydev->duplex = DUPLEX_FULL;
+
+        return 0;
+}
+#endif
+
 static int xgbe_probe(struct platform_device *pdev)
 {
 	struct xgbe_prv_data *pdata;
@@ -381,6 +424,15 @@ static int xgbe_probe(struct platform_device *pdev)
 		goto err_phydev;
 	}
 	phy_dev = &phy_pdev->dev;
+
+#ifdef BE_COMPATIBLE
+        if(ext_phy_probe(dev)) {
+                pr_info("XGMAC: can't probe external phy\n");
+		goto err_phydev;
+		
+	} else
+                pr_info("XGMAC: successfully probe external phy\n");
+#endif
 
 	if (pdev == phy_pdev) {
 		/* New style device tree or ACPI:
@@ -436,6 +488,7 @@ static int xgbe_probe(struct platform_device *pdev)
 	if (netif_msg_probe(pdata))
 		dev_dbg(dev, "xpcs_regs  = %p\n", pdata->xpcs_regs);
 
+#ifndef BE_COMPATIBLE
 	res = platform_get_resource(phy_pdev, IORESOURCE_MEM, phy_memnum++);
 	pdata->rxtx_regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pdata->rxtx_regs)) {
@@ -465,6 +518,7 @@ static int xgbe_probe(struct platform_device *pdev)
 	}
 	if (netif_msg_probe(pdata))
 		dev_dbg(dev, "sir1_regs  = %p\n", pdata->sir1_regs);
+#endif
 
 	/* Retrieve the MAC address */
 	ret = device_property_read_u8_array(dev, XGBE_MAC_ADDR_PROPERTY,
@@ -615,16 +669,10 @@ static int xgbe_probe(struct platform_device *pdev)
 		dev_err(dev, "DMA is not supported");
 		goto err_io;
 	}
-	pdata->coherent = (attr == DEV_DMA_COHERENT);
-	if (pdata->coherent) {
-		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
-		pdata->arcache = XGBE_DMA_OS_ARCACHE;
-		pdata->awcache = XGBE_DMA_OS_AWCACHE;
-	} else {
-		pdata->axdomain = XGBE_DMA_SYS_AXDOMAIN;
-		pdata->arcache = XGBE_DMA_SYS_ARCACHE;
-		pdata->awcache = XGBE_DMA_SYS_AWCACHE;
-	}
+
+	pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
+	pdata->arcache = XGBE_DMA_OS_ARCACHE;
+	pdata->awcache = XGBE_DMA_OS_AWCACHE;
 
 	/* Get the device interrupt */
 	ret = platform_get_irq(pdev, 0);
@@ -634,6 +682,7 @@ static int xgbe_probe(struct platform_device *pdev)
 	}
 	pdata->dev_irq = ret;
 
+#ifndef BE_COMPATIBLE
 	/* Get the auto-negotiation interrupt */
 	ret = platform_get_irq(phy_pdev, phy_irqnum++);
 	if (ret < 0) {
@@ -641,6 +690,7 @@ static int xgbe_probe(struct platform_device *pdev)
 		goto err_io;
 	}
 	pdata->an_irq = ret;
+#endif
 
 	netdev->irq = pdata->dev_irq;
 	netdev->base_addr = (unsigned long)pdata->xgmac_regs;

@@ -11,6 +11,17 @@ config PCI_DRA7XX
 	 are two instances of PCIe controller in DRA7xx.  This controller can
 	 act both as EP and RC.  This reuses the Designware core.
 
+config PCI_BAIKAL
+	bool "Baikal SoC PCIe controller"
+	depends on ARCH_BAIKAL
+	depends on OF && HAS_IOMEM
+	depends on PCI_MSI_IRQ_DOMAIN
+	select PCIE_DW
+	help
+	 Enables support for the PCIe controller in the Baikal SoC.  There
+	 are three instances of PCIe controller in Baikal-M.  Two of the controllers
+	 support PCIe 3.0 x4 and the remaining one supports PCIe 3.0 x8.
+
 config PCI_MVEBU
 	bool "Marvell EBU PCIe controller"
 	depends on ARCH_MVEBU || ARCH_DOVE

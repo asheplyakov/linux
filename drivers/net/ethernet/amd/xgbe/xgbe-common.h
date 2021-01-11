@@ -161,6 +161,8 @@
 #define DMA_ISR_MTLIS_WIDTH		1
 #define DMA_MR_SWR_INDEX		0
 #define DMA_MR_SWR_WIDTH		1
+#define DMA_MR_INTM_INDEX               12
+#define DMA_MR_INTM_WIDTH               2
 #define DMA_SBMR_EAME_INDEX		11
 #define DMA_SBMR_EAME_WIDTH		1
 #define DMA_SBMR_BLEN_256_INDEX		7

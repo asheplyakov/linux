@@ -1798,6 +1798,9 @@ static int aic3x_i2c_probe(struct i2c_client *i2c,
 		if (ret != 0)
 			goto err;
 		gpio_direction_output(aic3x->gpio_reset, 0);
+
+		udelay(100);
+		gpio_set_value(aic3x->gpio_reset, 1);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(aic3x->supplies); i++)

@@ -86,3 +86,5 @@ obj-$(CONFIG_DRM_FSL_DCU) += fsl-dcu/
 obj-$(CONFIG_DRM_ETNAVIV) += etnaviv/
 obj-$(CONFIG_DRM_ARCPGU)+= arc/
 obj-y			+= hisilicon/
+obj-$(CONFIG_DRM_PL111) += pl111/
+obj-$(CONFIG_DRM_BAIKAL_VDU) += baikal/

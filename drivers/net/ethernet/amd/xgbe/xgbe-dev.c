@@ -651,13 +651,21 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
 		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, AIE, 1);
 		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, FBEE, 1);
 
+#ifdef BE_COMPATIBLE
+		/* Setup MODE1: transfer complete doesn't affect common interrupt register */
+                if (pdata->per_channel_irq)
+                        XGMAC_IOWRITE_BITS(pdata, DMA_MR, INTM, 1);   
+#endif
 		if (channel->tx_ring) {
 			/* Enable the following Tx interrupts
 			 *   TIE  - Transmit Interrupt Enable (unless using
 			 *          per channel interrupts)
 			 */
+#ifndef BE_COMPATIBLE
 			if (!pdata->per_channel_irq)
-				XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 1);
+#endif
+			XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 1);
+
 		}
 		if (channel->rx_ring) {
 			/* Enable following Rx interrupts
@@ -666,8 +674,10 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
 			 *          per channel interrupts)
 			 */
 			XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RBUE, 1);
+#ifndef BE_COMPATIBLE
 			if (!pdata->per_channel_irq)
-				XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 1);
+#endif
+			XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 1);
 		}
 
 		XGMAC_DMA_IOWRITE(channel, DMA_CH_IER, dma_ch_ier);
