@@ -602,6 +602,7 @@ static const struct of_device_id pvt_dt_match[] = {
     { .compatible = "baikal,pvt" },
     { },
 };
+MODULE_DEVICE_TABLE(of, pvt_dt_match);
 
 static struct platform_driver pvt_hwmon_driver = {
     .probe	  = pvt_probe,
