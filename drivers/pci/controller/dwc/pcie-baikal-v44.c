@@ -183,11 +183,13 @@ static void baikal_pcie_link_speed_fixup(struct pci_dev *pdev)
 
 	/* Skip Root Bridge */
 	if (!pdev->bus->self) {
+		dev_info(&pdev->dev, "skipping the Root Bridge\n");
 		return;
 	}
 
 	/* Skip any devices not directly connected to the RC */
 	if (pdev->bus->self->bus->number != portp->bridge->bus->number) {
+		dev_info(&pdev->dev, "skipping, not directly connected to the RC\n");
 		return;
 	}
 
