@@ -527,6 +527,24 @@ static const struct of_device_id of_baikal_pcie_match[] = {
 	{},
 };
 
+/* XXX: this driver is incompatible with firmware from SDK-M version 4.4
+ * (and possibly later versions). Unfortunately the vendor does not provide
+ * any reasonable way to find out the firmware version. Hence this guess:
+ * if the "/soc" node exists - it's SDK-M 4.4
+ * otherwise it's SDK-M 4.3 (hopefully)
+ */
+static int guess_incompat_firmware(void)
+{
+	int ret = 0;
+	struct device_node *np = NULL;
+	np = of_find_node_by_path("/soc");
+	if (np) {
+		ret = 1;
+		of_node_put(np);
+	}
+	return ret;
+}
+
 static int baikal_pcie_probe(struct platform_device *pdev)
 {
 	struct dw_pcie *pci;
@@ -540,6 +558,10 @@ static int baikal_pcie_probe(struct platform_device *pdev)
 	int reset_gpio;
 	pr_info("%s: ENTER\n", __func__);
 
+	if (guess_incompat_firmware()) {
+		dev_err(dev, "detected incompatible firmware, bailing out\n");
+		return -ENODEV;
+	}
 
 	pcie = devm_kzalloc(dev, sizeof(*pcie), GFP_KERNEL);
 	if (!pcie) {
