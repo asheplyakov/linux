@@ -22,22 +22,11 @@
 
 #include <drm/drm_gem.h>
 #include <drm/drm_simple_kms_helper.h>
-#include <linux/workqueue.h>
 
 struct clk;
 struct drm_device;
 struct drm_fbdev_cma;
 struct drm_panel;
-
-/*struct baikal_vdu_framebuffer {
-	u32 base;
-	u32 size;
-	u32 index;
-	u32 reg_base;
-	u32 reg_size;
-	u32 reg_width;
-	u32 reg_height;
-};*/
 
 struct baikal_vdu_drm_connector {
 	struct drm_connector connector;
@@ -61,8 +50,6 @@ struct baikal_vdu_private {
 
 	u32 fb_addr;
 	u32 fb_end;
-
-	struct delayed_work update_work;
 };
 
 #define to_baikal_vdu_drm_connector(x) \
@@ -88,8 +75,5 @@ int baikal_vdu_dumb_create(struct drm_file *file_priv,
 		      struct drm_mode_create_dumb *args);
 
 void baikal_vdu_debugfs_init(struct drm_minor *minor);
-
-/* Worker functions */
-void baikal_vdu_update_work(struct work_struct *work);
 
 #endif /* __BAIKAL_VDU_DRM_H__ */
