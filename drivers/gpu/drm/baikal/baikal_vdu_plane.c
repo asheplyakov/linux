@@ -17,7 +17,6 @@
  *
  */
 
-#include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
@@ -32,42 +31,6 @@
 #include "baikal_vdu_drm.h"
 #include "baikal_vdu_regs.h"
 
-#define BAIKAL_SMC_VDU_UPDATE_HDMI	0x82000100
-
-void baikal_vdu_update_work(struct work_struct *work)
-{
-	struct arm_smccc_res res;
-	unsigned long flags;
-	struct baikal_vdu_private *priv = container_of(work, struct baikal_vdu_private,
-			update_work.work);
-	int count = 0;
-	u64 t1, t2;
-	t1 = read_sysreg(CNTVCT_EL0);
-	spin_lock_irqsave(&priv->lock, flags);
-	arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, priv->fb_addr, priv->fb_end, 0, 0, 0, 0, 0, &res);
-	spin_unlock_irqrestore(&priv->lock, flags);
-	if (res.a0 == -EBUSY)
-		priv->counters[15]++;
-	else
-		priv->counters[16]++;
-	while (res.a0 == -EBUSY && count < 10) {
-		count++;
-		usleep_range(10000, 20000);
-		res.a0 = 0;
-		spin_lock_irqsave(&priv->lock, flags);
-		arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, priv->fb_addr, priv->fb_end, 0, 0, 0, 0, 0, &res);
-		spin_unlock_irqrestore(&priv->lock, flags);
-		if (res.a0 == -EBUSY)
-			priv->counters[15]++;
-		else
-			priv->counters[16]++;
-	}
-	t2 = read_sysreg(CNTVCT_EL0);
-	priv->counters[17] = t2 - t1;
-	priv->counters[18] = count;
-	priv->counters[19]++;
-}
-
 static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 					    struct drm_plane_state *state)
 {
@@ -76,6 +39,7 @@ static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 	struct drm_crtc_state *crtc_state;
 	struct drm_display_mode *mode;
 	int rate, ret;
+	u32 cntl;
 
 	if (!state->crtc)
 		return 0;
@@ -86,6 +50,9 @@ static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 	if (rate == clk_get_rate(priv->clk))
 		return 0;
 
+	/* hold clock domain reset; disable clocking */
+	writel(0, priv->regs + PCTR);
+
 	if (__clk_is_enabled(priv->clk))
 		clk_disable_unprepare(priv->clk);
 	ret = clk_set_rate(priv->clk, rate);
@@ -94,15 +61,23 @@ static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 	if (ret < 0) {
 		DRM_ERROR("Cannot set desired pixel clock (%d Hz)\n",
 			  rate);
-		return -EINVAL;
-	}
-	clk_prepare_enable(priv->clk);
-	if (!__clk_is_enabled(priv->clk)) {
-		DRM_ERROR("PLL could not lock at desired frequency (%d Hz)\n",
+		ret = -EINVAL;
+	} else {
+		clk_prepare_enable(priv->clk);
+		if (__clk_is_enabled(priv->clk))
+			ret = 0;
+		else {
+			DRM_ERROR("PLL could not lock at desired frequency (%d Hz)\n",
 			  rate);
-		return -EINVAL;
+			ret = -EINVAL;
+		}
 	}
-	return 0;
+
+	/* release clock domain reset; enable clocking */
+	cntl = readl(priv->regs + PCTR);
+	cntl |= PCTR_PCR + PCTR_PCI;
+
+	return ret;
 }
 
 static void baikal_vdu_primary_plane_atomic_update(struct drm_plane *plane,
@@ -112,28 +87,13 @@ static void baikal_vdu_primary_plane_atomic_update(struct drm_plane *plane,
 	struct baikal_vdu_private *priv = dev->dev_private;
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
-	struct arm_smccc_res res;
 	u32 cntl, addr, end;
-	unsigned long flags;
 
 	if (!fb)
 		return;
 
 	addr = drm_fb_cma_get_gem_addr(fb, state, 0);
-	end = ((addr + fb->height * fb->pitches[0] - 1) & MRR_DEAR_MRR_MASK) | MRR_OUTSTND_RQ(4);
-
-	spin_lock_irqsave(&priv->lock, flags);
-	arm_smccc_smc(BAIKAL_SMC_VDU_UPDATE_HDMI, addr, end, 0, 0, 0, 0, 0, &res);
-	spin_unlock_irqrestore(&priv->lock, flags);
-
-	if (res.a0 == -EBUSY) {
-		priv->counters[15]++;
-		priv->fb_addr = addr;
-		priv->fb_end = end;
-		smp_wmb();
-		schedule_delayed_work(&priv->update_work, usecs_to_jiffies(250));
-	} else
-		priv->counters[16]++;
+	priv->fb_addr = addr & 0xfffffff8;
 
 	cntl = readl(priv->regs + CR1);
 	cntl &= ~CR1_BPP_MASK;
@@ -178,6 +138,14 @@ static void baikal_vdu_primary_plane_atomic_update(struct drm_plane *plane,
 		break;
 	}
 
+	writel(priv->fb_addr, priv->regs + DBAR);
+	end = ((priv->fb_addr + fb->height * fb->pitches[0] - 1) & MRR_DEAR_MRR_MASK) | \
+		MRR_OUTSTND_RQ(4);
+
+	if (priv->fb_end < end) {
+		writel(end, priv->regs + MRR);
+		priv->fb_end = end;
+	}
 	writel(cntl, priv->regs + CR1);
 }
 

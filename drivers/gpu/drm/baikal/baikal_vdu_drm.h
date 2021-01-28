@@ -22,7 +22,6 @@
 
 #include <drm/drm_gem.h>
 #include <drm/drm_simple_kms_helper.h>
-#include <linux/workqueue.h>
 
 struct baikal_vdu_private {
 	struct drm_device *drm;
@@ -42,8 +41,6 @@ struct baikal_vdu_private {
 
 	u32 fb_addr;
 	u32 fb_end;
-
-	struct delayed_work update_work;
 };
 
 /* CRTC Functions */
@@ -59,8 +56,5 @@ int baikal_vdu_connector_create(struct drm_device *dev);
 int baikal_vdu_encoder_init(struct drm_device *dev);
 
 void baikal_vdu_debugfs_init(struct drm_minor *minor);
-
-/* Worker functions */
-void baikal_vdu_update_work(struct work_struct *work);
 
 #endif /* __BAIKAL_VDU_DRM_H__ */

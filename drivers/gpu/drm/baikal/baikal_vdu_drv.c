@@ -151,8 +151,6 @@ static int vdu_modeset_init(struct drm_device *dev)
 	}
 
 	arm_smccc_smc(BAIKAL_SMC_SCP_LOG_DISABLE, 0, 0, 0, 0, 0, 0, 0, &res);
-	INIT_DEFERRABLE_WORK(&priv->update_work,
-			     baikal_vdu_update_work);
 
 	drm_mode_config_reset(dev);
 
