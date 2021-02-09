@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:1 
 %define kernel_base_version	5.10
 %define kernel_sublevel .14
@@ -702,6 +702,10 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %modules_dir/kernel/drivers/staging/
 
 %changelog
+* Tue Feb 09 2021 Alexey Sheplyakov <asheplyakov@altlinux.org> 1:5.10.14-alt2
+- BE-M1000 (aka Baikal-M) support.  MBM1.0 boards with firmware from
+  SDK-M version 4.4 and 4.3 are supported
+
 * Mon Feb 08 2021 Kernel Bot <kernelbot@altlinux.org> 1:5.10.14-alt1
 - v5.10.14
 
