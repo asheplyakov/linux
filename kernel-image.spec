@@ -705,6 +705,10 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 * Wed Feb 10 2021 Kernel Bot <kernelbot@altlinux.org> 1:5.10.15-alt1
 - v5.10.15
 
+* Tue Feb 09 2021 Alexey Sheplyakov <asheplyakov@altlinux.org> 1:5.10.14-alt2
+- BE-M1000 (aka Baikal-M) support.  MBM1.0 boards with firmware from
+  SDK-M version 4.4 and 4.3 are supported
+
 * Mon Feb 08 2021 Kernel Bot <kernelbot@altlinux.org> 1:5.10.14-alt1
 - v5.10.14
 
