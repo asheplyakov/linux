@@ -112,11 +112,12 @@ BuildRequires: gcc%kgcc_version gcc%kgcc_version-c++
 BuildRequires: gcc%kgcc_version-plugin-devel libgmp-devel libmpc-devel
 BuildRequires: kernel-source-%kernel_base_version = %kernel_extra_version_numeric
 BuildRequires: module-init-tools >= 3.16
-BuildRequires: lzma-utils
+BuildRequires: lzma-utils zlib-devel
 BuildRequires: libelf-devel
 BuildRequires: bc
 BuildRequires: rsync
 BuildRequires: openssl-devel openssl
+BuildRequires: dwarves >= 1.16
 # for check
 %{?!_without_check:%{?!_disable_check:BuildRequires: qemu-system-%qemu_pkg-core ipxe-roms-qemu glibc-devel-static}}
 Provides: kernel-modules-eeepc-%flavour = %version-%release
