@@ -34,6 +34,14 @@ struct baikal_dwmac {
 	struct clk	*tx2_clk;
 };
 
+static void clear_phy_reset(void __iomem *ioaddr)
+{
+	u32 value;
+	value = readl(ioaddr + MAC_GPIO);
+	value |= MAC_GPIO_GPO0;
+	writel(value, ioaddr + MAC_GPIO);
+}
+
 static int baikal_dwmac_dma_reset(void __iomem *ioaddr)
 {
 	int err;
@@ -44,10 +52,7 @@ static int baikal_dwmac_dma_reset(void __iomem *ioaddr)
 	writel(value, ioaddr + DMA_BUS_MODE);
 
 	udelay(10);
-	/* Clear PHY reset */
-	value = readl(ioaddr + MAC_GPIO);
-	value |= MAC_GPIO_GPO0;
-	writel(value, ioaddr + MAC_GPIO);
+	clear_phy_reset(ioaddr);
 	pr_info("PHY re-inited for Baikal DWMAC\n");
 
 	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
@@ -89,6 +94,8 @@ static struct mac_device_info* baikal_dwmac_setup(void *ppriv)
 	mac = devm_kzalloc(priv->device, sizeof(*mac), GFP_KERNEL);
 	if (!mac)
 		return NULL;
+
+	clear_phy_reset(priv->ioaddr);
 
 	mac->dma = &baikal_dwmac_dma_ops;
 	old_mac = priv->hw;
