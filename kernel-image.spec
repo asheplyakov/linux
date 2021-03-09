@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:1 
 %define kernel_base_version	5.10
 %define kernel_sublevel .20
@@ -681,6 +681,9 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %modules_dir/kernel/drivers/staging/
 
 %changelog
+* Tue Mar 09 2021 Kernel Bot <kernelbot@altlinux.org> 1:5.10.20-alt2
+- get rid of v4l subpackage
+
 * Fri Mar 05 2021 Kernel Bot <kernelbot@altlinux.org> 1:5.10.20-alt1
 - v5.10.20
 
