@@ -184,6 +184,7 @@ it seems that you do not need this package.
 Summary: The Direct Rendering Infrastructure modules
 Group: System/Kernel and hardware
 Provides:  kernel-modules-drm-%kversion-%flavour-%krelease = %version-%release
+Provides:  kernel-modules-v4l-%flavour = %version-%release
 Conflicts: kernel-modules-drm-%kversion-%flavour-%krelease < %version-%release
 Conflicts: kernel-modules-drm-%kversion-%flavour-%krelease > %version-%release
 Prereq: coreutils
@@ -279,24 +280,6 @@ still useful for some hardware, if the corresponding PATA drivers do
 not work well.
 
 Install this package only if you really need it.
-
-%package -n kernel-modules-v4l-%flavour
-Summary: Video4Linux driver modules (obsolete)
-Group: System/Kernel and hardware
-Provides:  kernel-modules-v4l-%kversion-%flavour-%krelease = %version-%release
-Conflicts: kernel-modules-v4l-%kversion-%flavour-%krelease < %version-%release
-Conflicts: kernel-modules-v4l-%kversion-%flavour-%krelease > %version-%release
-Provides:  kernel-modules-uvcvideo-%kversion-%flavour-%krelease = %version-%release
-Provides:  kernel-modules-gspca-%kversion-%flavour-%krelease = %version-%release
-Provides:  kernel-modules-lirc-%kversion-%flavour-%krelease = %version-%release
-Provides:  kernel-modules-lirc-%flavour = %version-%release
-Prereq: coreutils
-Prereq: module-init-tools >= 3.1
-Prereq: %name = %epoch:%version-%release
-Requires(postun): %name = %epoch:%version-%release
-
-%description -n kernel-modules-v4l-%flavour
-Video for linux drivers
 
 %package -n kernel-modules-staging-%flavour
 Summary:  Kernel modules under development
@@ -661,9 +644,7 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 
 %files -n kernel-modules-drm-%flavour
 %modules_dir/kernel/drivers/gpu/drm
-%modules_dir/kernel/drivers/media/cec
-%dir %modules_dir/kernel/drivers/media/rc
-%modules_dir/kernel/drivers/media/rc/rc-core.*
+%modules_dir/kernel/drivers/media/
 %exclude %modules_dir/kernel/drivers/gpu/drm/nouveau
 %exclude %modules_dir/kernel/drivers/gpu/drm/radeon
 %exclude %modules_dir/kernel/drivers/gpu/drm/mgag200
@@ -695,9 +676,6 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 
 %files -n kernel-modules-drm-radeon-%flavour
 %modules_dir/kernel/drivers/gpu/drm/radeon
-
-%files -n kernel-modules-v4l-%flavour
-%modules_dir/kernel/drivers/media/
 
 %files -n kernel-modules-staging-%flavour
 %modules_dir/kernel/drivers/staging/
