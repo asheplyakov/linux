@@ -238,27 +238,6 @@ OpenGL implementations.
 
 These are modules for your ALT Linux system
 
-%package -n kernel-modules-drm-radeon-%flavour
-Summary: The Direct Rendering Infrastructure modules for ATI cards
-Group: System/Kernel and hardware
-Provides:  kernel-modules-drm-radeon-%kversion-%flavour-%krelease = %version-%release
-Conflicts: kernel-modules-drm-radeon-%kversion-%flavour-%krelease < %version-%release
-Conflicts: kernel-modules-drm-radeon-%kversion-%flavour-%krelease > %version-%release
-Requires: kernel-modules-drm-%kversion-%flavour-%krelease = %version-%release
-Prereq: coreutils
-Prereq: module-init-tools >= 3.1
-Prereq: %name = %epoch:%version-%release
-Requires(postun): %name = %epoch:%version-%release
-
-%description -n kernel-modules-drm-radeon-%flavour
-The Direct Rendering Infrastructure, also known as the DRI, is a framework
-for allowing direct access to graphics hardware in a safe and efficient
-manner.  It includes changes to the X server, to several client libraries,
-and to the kernel.  The first major use for the DRI is to create fast
-OpenGL implementations.
-
-These are modules for your ALT Linux system
-
 %package -n kernel-modules-ide-%flavour
 Summary: IDE  driver modules (obsolete by PATA)
 Group: System/Kernel and hardware
@@ -645,7 +624,6 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %modules_dir/kernel/drivers/gpu/drm
 %modules_dir/kernel/drivers/media/
 %exclude %modules_dir/kernel/drivers/gpu/drm/nouveau
-%exclude %modules_dir/kernel/drivers/gpu/drm/radeon
 %exclude %modules_dir/kernel/drivers/gpu/drm/mgag200
 %ifnarch aarch64 armh
 %exclude %modules_dir/kernel/drivers/gpu/drm/sis
