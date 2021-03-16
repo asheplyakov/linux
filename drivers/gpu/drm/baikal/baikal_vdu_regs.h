@@ -1,5 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2019-2020 Baikal Electronics JSC
+ * Copyright (C) 2019-2021 Baikal Electronics JSC
  *
  * Author: Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>
  *
@@ -7,10 +8,6 @@
  *
  *   David A Rusling
  *   Copyright (C) 2001 ARM Limited
- *
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file COPYING in the main directory of this archive
- * for more details.
  */
 
 #ifndef __BAIKAL_VDU_REGS_H__
@@ -50,6 +47,7 @@
 #define INTR_FER    BIT(4)
 
 #define CR1_FBP             BIT(19)
+#define CR1_FDW_MASK        GENMASK(17, 16)
 #define CR1_FDW_4_WORDS     (0 << 16)
 #define CR1_FDW_8_WORDS     (1 << 16)
 #define CR1_FDW_16_WORDS    (2 << 16)
@@ -129,15 +127,10 @@
 #define HPPLOR_HPPLO(x)     ((x) << 0)
 
 #define GPIOR_UHD_MASK      GENMASK(23, 16)
-#define GPIOR_UHD_FMT_LDI   (0 << 20)
-#define GPIOR_UHD_FMT_VESA  (1 << 20)
-#define GPIOR_UHD_FMT_JEIDA (2 << 20)
 #define GPIOR_UHD_SNGL_PORT (0 << 18)
 #define GPIOR_UHD_DUAL_PORT (1 << 18)
 #define GPIOR_UHD_QUAD_PORT (2 << 18)
 #define GPIOR_UHD_ENB       BIT(17)
-#define GPIOR_UHD_PIX_INTLV (0 << 16)
-#define GPIOR_UHD_PIX_SQNTL (1 << 16)
 
 #define MRR_DEAR_MRR_MASK   GENMASK(31, 3)
 #define MRR_OUTSTND_RQ_MASK GENMASK(2, 0)

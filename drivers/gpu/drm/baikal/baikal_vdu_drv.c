@@ -23,7 +23,6 @@
 #include <linux/arm-smccc.h>
 #include <linux/irq.h>
 #include <linux/clk.h>
-#include <linux/version.h>
 #include <linux/shmem_fs.h>
 #include <linux/dma-buf.h>
 #include <linux/module.h>
@@ -63,6 +62,10 @@ static struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
+static const struct drm_encoder_funcs baikal_vdu_encoder_funcs = {
+	.destroy = drm_encoder_cleanup,
+};
+
 static int vdu_modeset_init(struct drm_device *dev)
 {
 	struct drm_mode_config *mode_config;
@@ -94,36 +97,33 @@ static int vdu_modeset_init(struct drm_device *dev)
 	}
 
 	ret = drm_of_find_panel_or_bridge(dev->dev->of_node, -1, -1,
-					  &priv->connector.panel,
+					  &priv->panel,
 					  &priv->bridge);
 	if (ret == -EPROBE_DEFER) {
 		dev_info(dev->dev, "Bridge probe deferred\n");
 		goto out_config;
 	}
 
-	ret = baikal_vdu_encoder_init(dev);
-	if (ret) {
-		dev_err(dev->dev, "Failed to create DRM encoder\n");
-		goto out_config;
-	}
-
 	if (priv->bridge) {
+		struct drm_encoder *encoder = &priv->encoder;
+		ret = drm_encoder_init(dev, encoder, &baikal_vdu_encoder_funcs,
+				       DRM_MODE_ENCODER_NONE, NULL);
+		if (ret) {
+			dev_err(dev->dev, "failed to create DRM encoder\n");
+			goto out_config;
+		}
+		encoder->crtc = &priv->crtc;
+		encoder->possible_crtcs = drm_crtc_mask(encoder->crtc);
 		priv->bridge->encoder = &priv->encoder;
 		ret = drm_bridge_attach(&priv->encoder, priv->bridge, NULL, 0);
 		if (ret) {
 			dev_err(dev->dev, "Failed to attach DRM bridge %d\n", ret);
 			goto out_config;
 		}
-	} else if (priv->connector.panel) {
-		ret = baikal_vdu_connector_create(dev);
+	} else if (priv->panel) {
+		ret = baikal_vdu_lvds_connector_create(dev);
 		if (ret) {
 			dev_err(dev->dev, "Failed to create DRM connector\n");
-			goto out_config;
-		}
-		ret = drm_connector_attach_encoder(&priv->connector.connector,
-						&priv->encoder);
-		if (ret != 0) {
-			dev_err(dev->dev, "Failed to attach encoder\n");
 			goto out_config;
 		}
 	} else
@@ -194,7 +194,7 @@ static struct drm_driver vdu_drm_driver = {
 	.major = 1,
 	.minor = 0,
 	.patchlevel = 0,
-	.dumb_create = baikal_vdu_dumb_create,
+	.dumb_create = drm_gem_cma_dumb_create,
 	.gem_create_object = drm_gem_cma_create_object_default_funcs,
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
@@ -253,6 +253,14 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 		dev_err(dev, "%s IRQ %d allocation failed\n", __func__, irq);
 		return ret;
 	}
+
+	if (pdev->dev.of_node && of_property_read_bool(pdev->dev.of_node, "lvds-out")) {
+		priv->type = VDU_TYPE_LVDS;
+		if (of_property_read_u32(pdev->dev.of_node, "num-lanes", &priv->ep_count))
+			priv->ep_count = 1;
+	}
+	else
+		priv->type = VDU_TYPE_HDMI;
 
 	ret = vdu_modeset_init(drm);
 	if (ret != 0) {

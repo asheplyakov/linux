@@ -23,22 +23,16 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_simple_kms_helper.h>
 
-struct clk;
-struct drm_device;
-struct drm_fbdev_cma;
-struct drm_panel;
-
-struct baikal_vdu_drm_connector {
-	struct drm_connector connector;
-	struct drm_panel *panel;
-};
+#define VDU_TYPE_HDMI	0
+#define VDU_TYPE_LVDS	1
 
 struct baikal_vdu_private {
 	struct drm_device *drm;
 
-	struct baikal_vdu_drm_connector connector;
+	struct drm_connector connector;
 	struct drm_crtc crtc;
 	struct drm_encoder encoder;
+	struct drm_panel *panel;
 	struct drm_bridge *bridge;
 	struct drm_plane primary;
 
@@ -47,15 +41,11 @@ struct baikal_vdu_private {
 	spinlock_t lock;
 	u32 counters[20];
 	int mode_fixup;
-
+	int type;
+	u32 ep_count;
 	u32 fb_addr;
 	u32 fb_end;
 };
-
-#define to_baikal_vdu_drm_connector(x) \
-	container_of(x, struct baikal_vdu_drm_connector, connector)
-
-extern const struct drm_encoder_funcs baikal_vdu_encoder_funcs;
 
 /* CRTC Functions */
 int baikal_vdu_crtc_create(struct drm_device *dev);
@@ -64,15 +54,7 @@ irqreturn_t baikal_vdu_irq(int irq, void *data);
 int baikal_vdu_primary_plane_init(struct drm_device *dev);
 
 /* Connector Functions */
-int baikal_vdu_connector_create(struct drm_device *dev);
-
-/* Encoder Functions */
-int baikal_vdu_encoder_init(struct drm_device *dev);
-
-/* GEM Functions */
-int baikal_vdu_dumb_create(struct drm_file *file_priv,
-		      struct drm_device *dev,
-		      struct drm_mode_create_dumb *args);
+int baikal_vdu_lvds_connector_create(struct drm_device *dev);
 
 void baikal_vdu_debugfs_init(struct drm_minor *minor);
 
