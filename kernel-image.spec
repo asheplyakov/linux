@@ -597,7 +597,7 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %exclude %modules_dir/build
 %exclude %modules_dir/kernel/drivers/media/
 %exclude %modules_dir/kernel/drivers/staging/
-%exclude %modules_dir/kernel/drivers/gpu/drm
+%exclude %modules_dir/kernel/drivers/gpu/
 %ifnarch aarch64
 %exclude %modules_dir/kernel/drivers/ide/
 %endif
@@ -629,7 +629,7 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %endif
 
 %files -n kernel-modules-drm-%flavour
-%modules_dir/kernel/drivers/gpu/drm
+%modules_dir/kernel/drivers/gpu/
 %modules_dir/kernel/drivers/media/
 %exclude %modules_dir/kernel/drivers/gpu/drm/nouveau
 %exclude %modules_dir/kernel/drivers/gpu/drm/mgag200
