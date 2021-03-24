@@ -1,6 +1,6 @@
 Name: kernel-image-@kflavour@
 Release: alt1
-epoch:1 
+epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .23
 %define kernel_extra_version	%nil
@@ -663,7 +663,7 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %modules_dir/kernel/drivers/staging/
 
 %changelog
-* Fri Mar 12 2021 Kernel Bot <kernelbot@altlinux.org> 1:5.10.23-alt1
+* Fri Mar 12 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.23-alt1
 - v5.10.23
 - get rid of drm-radeon package (moved into drm)
 - rmi2-core deps added to kernel-image
