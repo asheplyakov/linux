@@ -143,7 +143,6 @@ BuildRequires: ccache
 Requires: bootloader-utils >= 0.4.24-alt1
 Requires: module-init-tools >= 3.1
 Requires: mkinitrd >= 1:2.9.9-alt1
-Requires: startup >= 0.8.3-alt1
 
 Provides: kernel = %kversion
 
