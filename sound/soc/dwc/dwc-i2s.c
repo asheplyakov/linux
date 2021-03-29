@@ -26,6 +26,9 @@
 #include <sound/dmaengine_pcm.h>
 #include "local.h"
 
+#define MASTER_CLK 12000000
+static uint32_t sys_clock_freq;
+
 static inline void i2s_write_reg(void __iomem *io_base, int reg, u32 val)
 {
 	writel(val, io_base + reg);
@@ -100,6 +103,7 @@ static inline void i2s_enable_irqs(struct dw_i2s_dev *dev, u32 stream,
 
 static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 {
+	unsigned int rxor_count;
 	struct dw_i2s_dev *dev = dev_id;
 	bool irq_valid = false;
 	u32 isr[4];
@@ -136,9 +140,13 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 			irq_valid = true;
 		}
 
-		/* Error Handling: TX */
+		/* Error Handling: RX */
 		if (isr[i] & ISR_RXFO) {
-			dev_err(dev->dev, "RX overrun (ch_id=%d)\n", i);
+			rxor_count = READ_ONCE(dev->rx_overrun_count);
+			if (!(rxor_count & 0x3ff))
+				dev_dbg(dev->dev, "RX overrun (ch_id=%d)\n", i);
+			rxor_count++;
+			WRITE_ONCE(dev->rx_overrun_count, rxor_count);
 			irq_valid = true;
 		}
 	}
@@ -188,6 +196,9 @@ static int dw_i2s_startup(struct snd_pcm_substream *substream,
 {
 	struct dw_i2s_dev *dev = snd_soc_dai_get_drvdata(cpu_dai);
 	union dw_i2s_snd_dma_data *dma_data = NULL;
+	struct snd_soc_pcm_runtime *rtd = NULL;
+	struct snd_soc_dai *codec_dai = NULL;
+	int ret = 0;
 
 	if (!(dev->capability & DWC_I2S_RECORD) &&
 			(substream->stream == SNDRV_PCM_STREAM_CAPTURE))
@@ -203,8 +214,23 @@ static int dw_i2s_startup(struct snd_pcm_substream *substream,
 		dma_data = &dev->capture_dma_data;
 
 	snd_soc_dai_set_dma_data(cpu_dai, substream, (void *)dma_data);
-
-	return 0;
+	if (sys_clock_freq) {
+		rtd = substream->private_data;
+		if (!rtd) {
+			dev_err(dev->dev, "private_data is NULL when setting sysclk\n");
+			ret = -EINVAL;
+			goto out;
+		}
+		codec_dai = rtd->codec_dai;
+		if (!codec_dai) {
+			dev_err(dev->dev, "codec_dai is NULL when setting codec_dai\n");
+			ret = -EINVAL;
+			goto out;
+		}
+		ret = snd_soc_dai_set_sysclk(codec_dai, 0, sys_clock_freq, SND_SOC_CLOCK_IN);
+	}
+out:
+	return ret;
 }
 
 static void dw_i2s_config(struct dw_i2s_dev *dev, int stream)
@@ -616,7 +642,8 @@ static int dw_i2s_probe(struct platform_device *pdev)
 	const struct i2s_platform_data *pdata = pdev->dev.platform_data;
 	struct dw_i2s_dev *dev;
 	struct resource *res;
-	int ret, irq;
+	int ret, irq, irq_count;
+	unsigned idx;
 	struct snd_soc_dai_driver *dw_i2s_dai;
 	const char *clk_id;
 
@@ -639,13 +666,21 @@ static int dw_i2s_probe(struct platform_device *pdev)
 
 	dev->dev = &pdev->dev;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq >= 0) {
-		ret = devm_request_irq(&pdev->dev, irq, i2s_irq_handler, 0,
-				pdev->name, dev);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "failed to request irq\n");
-			return ret;
+	irq_count = platform_irq_count(pdev);
+	if (irq_count < 0) {
+		dev_err(&pdev->dev, "no IRQs found for device\n");
+		return irq_count;
+	}
+
+	for (idx = 0; idx < (unsigned)irq_count; idx++) {
+		irq = platform_get_irq(pdev, idx);
+		if (irq >= 0) {
+			ret = devm_request_irq(&pdev->dev, irq, i2s_irq_handler, 0,
+					       pdev->name, dev);
+			if (ret < 0) {
+				dev_err(&pdev->dev, "failed to request irq\n");
+				return ret;
+			}
 		}
 	}
 
@@ -710,6 +745,11 @@ static int dw_i2s_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (of_property_read_u32(pdev->dev.of_node, "system-clock-frequency", &sys_clock_freq)) {
+		if (of_device_is_compatible(of_root, "baikal,baikal-m")) {
+			sys_clock_freq = MASTER_CLK;
+		}
+	}
 	pm_runtime_enable(&pdev->dev);
 	return 0;
 
