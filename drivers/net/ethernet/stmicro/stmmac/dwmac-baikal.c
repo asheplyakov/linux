@@ -193,11 +193,6 @@ static int dwmac_baikal_probe(struct platform_device *pdev)
 	// TODO: set CSR correct clock in dts!
 	plat_dat->clk_csr = 3;
 	plat_dat->setup = baikal_dwmac_setup;
-	/* nRST Ethernet PHY is *not* connected to GPIO. Instead it goes
-	 * to GMAC. Therefore mdio bus should be reset only once, in
-	 * baikal_dwmac_setup.
-	 */
-	plat_dat->mdio_bus_data->needs_reset = false;
 
 	dev_info(&pdev->dev, "Baikal Electronics DWMAC glue driver\n");
 
