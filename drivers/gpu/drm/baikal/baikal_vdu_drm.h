@@ -23,6 +23,9 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_simple_kms_helper.h>
 
+#define VDU_TYPE_HDMI	0
+#define VDU_TYPE_LVDS	1
+
 struct baikal_vdu_private {
 	struct drm_device *drm;
 
@@ -38,7 +41,8 @@ struct baikal_vdu_private {
 	spinlock_t lock;
 	u32 counters[20];
 	int mode_fixup;
-
+	int type;
+	u32 ep_count;
 	u32 fb_addr;
 	u32 fb_end;
 };
@@ -50,10 +54,7 @@ irqreturn_t baikal_vdu_irq(int irq, void *data);
 int baikal_vdu_primary_plane_init(struct drm_device *dev);
 
 /* Connector Functions */
-int baikal_vdu_connector_create(struct drm_device *dev);
-
-/* Encoder Functions */
-int baikal_vdu_encoder_init(struct drm_device *dev);
+int baikal_vdu_lvds_connector_create(struct drm_device *dev);
 
 void baikal_vdu_debugfs_init(struct drm_minor *minor);
 

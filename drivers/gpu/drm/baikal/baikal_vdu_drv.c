@@ -62,6 +62,10 @@ static struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
+static const struct drm_encoder_funcs baikal_vdu_encoder_funcs = {
+	.destroy = drm_encoder_cleanup,
+};
+
 static int vdu_modeset_init(struct drm_device *dev)
 {
 	struct drm_mode_config *mode_config;
@@ -100,13 +104,16 @@ static int vdu_modeset_init(struct drm_device *dev)
 		goto out_config;
 	}
 
-	ret = baikal_vdu_encoder_init(dev);
-	if (ret) {
-		dev_err(dev->dev, "Failed to create DRM encoder\n");
-		goto out_config;
-	}
-
 	if (priv->bridge) {
+		struct drm_encoder *encoder = &priv->encoder;
+		ret = drm_encoder_init(dev, encoder, &baikal_vdu_encoder_funcs,
+				       DRM_MODE_ENCODER_NONE, NULL);
+		if (ret) {
+			dev_err(dev->dev, "failed to create DRM encoder\n");
+			goto out_config;
+		}
+		encoder->crtc = &priv->crtc;
+		encoder->possible_crtcs = drm_crtc_mask(encoder->crtc);
 		priv->bridge->encoder = &priv->encoder;
 		ret = drm_bridge_attach(&priv->encoder, priv->bridge, NULL, 0);
 		if (ret) {
@@ -114,15 +121,9 @@ static int vdu_modeset_init(struct drm_device *dev)
 			goto out_config;
 		}
 	} else if (priv->panel) {
-		ret = baikal_vdu_connector_create(dev);
+		ret = baikal_vdu_lvds_connector_create(dev);
 		if (ret) {
 			dev_err(dev->dev, "Failed to create DRM connector\n");
-			goto out_config;
-		}
-		ret = drm_connector_attach_encoder(&priv->connector,
-						&priv->encoder);
-		if (ret != 0) {
-			dev_err(dev->dev, "Failed to attach encoder\n");
 			goto out_config;
 		}
 	} else
@@ -245,6 +246,14 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 		dev_err(dev, "%s IRQ %d allocation failed\n", __func__, irq);
 		return ret;
 	}
+
+	if (pdev->dev.of_node && of_property_read_bool(pdev->dev.of_node, "lvds-out")) {
+		priv->type = VDU_TYPE_LVDS;
+		if (of_property_read_u32(pdev->dev.of_node, "num-lanes", &priv->ep_count))
+			priv->ep_count = 1;
+	}
+	else
+		priv->type = VDU_TYPE_HDMI;
 
 	ret = vdu_modeset_init(drm);
 	if (ret != 0) {

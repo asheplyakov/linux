@@ -81,13 +81,38 @@ static const struct drm_encoder_funcs encoder_funcs = {
 	.destroy = drm_encoder_cleanup,
 };
 
-int baikal_vdu_connector_create(struct drm_device *dev)
+int baikal_vdu_lvds_connector_create(struct drm_device *dev)
 {
 	struct baikal_vdu_private *priv = dev->dev_private;
 	struct drm_connector *connector = &priv->connector;
+	struct drm_encoder *encoder = &priv->encoder;
+	int ret = 0;
 
-	drm_connector_init(dev, connector, &connector_funcs,
+	ret = drm_connector_init(dev, connector, &connector_funcs,
 			DRM_MODE_CONNECTOR_LVDS);
+	if (ret) {
+		dev_err(dev->dev, "drm_connector_init failed: %d\n", ret);
+		goto out;
+	}
 	drm_connector_helper_add(connector, &connector_helper_funcs);
-	return 0;
+	ret = drm_encoder_init(dev, encoder, &encoder_funcs,
+			       DRM_MODE_ENCODER_LVDS, NULL);
+	if (ret) {
+		dev_err(dev->dev, "drm_encoder_init failed: %d\n", ret);
+		goto out;
+	}
+	encoder->crtc = &priv->crtc;
+	encoder->possible_crtcs = drm_crtc_mask(encoder->crtc);
+	ret = drm_connector_attach_encoder(connector, encoder);
+	if (ret) {
+		dev_err(dev->dev, "drm_connector_attach_encoder failed: %d\n", ret);
+		goto out;
+	}
+	ret = drm_connector_register(connector);
+	if (ret) {
+		dev_err(dev->dev, "drm_connector_register failed: %d\n", ret);
+		goto out;
+	}
+out:
+	return ret;
 }
