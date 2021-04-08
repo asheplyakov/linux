@@ -402,6 +402,8 @@ install -Dp -m644 .config %buildroot/boot/config-$KernelVer
 
 %make_build modules_install INSTALL_MOD_PATH=%buildroot
 
+install -d %buildroot%modules_dir/updates
+
 # Move some modules to kernel-image package tree
 # rmi2-core deps
 install -d %buildroot%modules_dir/kernel/drivers/media-core/
@@ -591,6 +593,7 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 /boot/System.map-%kversion-%flavour-%krelease
 /boot/config-%kversion-%flavour-%krelease
 %dir %modules_dir/
+%dir %modules_dir/updates
 %defattr(0600,root,root,0700)
 %modules_dir/*
 %exclude %modules_dir/build
