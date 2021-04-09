@@ -665,6 +665,9 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %modules_dir/kernel/drivers/staging/
 
 %changelog
+* Wed Mar 31 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.4.109-alt1
+- v5.4.109
+
 * Fri Mar 12 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.23-alt1
 - v5.10.23
 - get rid of drm-radeon package (moved into drm)
