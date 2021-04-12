@@ -228,6 +228,22 @@ OpenGL implementations.
 
 These are modules for your ALT Linux system
 
+%ifarch aarch64
+%package -n kernel-modules-midgard-be-m1000-%flavour
+Summary: Non-DRM driver for Mali Midgard GPU for BE-M1000 SoC
+Group: System/Kernel and hardware
+Prereq: coreutils
+Prereq: module-init-tools >= 3.1
+Prereq: %name = %epoch:%version-%release
+Requires(postun): %name = %epoch:%version-%release
+
+%description -n kernel-modules-midgard-be-m1000-%flavour
+Kernel part of non-DRM driver for Mali T628 GPU. Requires a proprietary
+userspace library (libmali.so) to make use of GPU. Suitable for BE-M1000
+SoC only. Use the open source panfrost driver included in
+kernel-modules-drm-%flavour package unless you know what are you doing.
+%endif
+
 %package -n kernel-modules-ide-%flavour
 Summary: IDE  driver modules (obsolete by PATA)
 Group: System/Kernel and hardware
@@ -636,6 +652,9 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %exclude %modules_dir/kernel/drivers/gpu/drm/mga
 %exclude %modules_dir/kernel/drivers/gpu/drm/via
 %endif
+%ifarch aarch64
+%exclude %modules_dir/kernel/drivers/gpu/arm/midgard
+%endif
 
 %files -n kernel-modules-drm-ancient-%flavour
 %modules_dir/kernel/drivers/gpu/drm/mgag200
@@ -649,6 +668,11 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 
 %files -n kernel-modules-ide-%flavour
 %modules_dir/kernel/drivers/ide/
+%endif
+
+%ifarch aarch64
+%files -n kernel-modules-midgard-be-m1000-%flavour
+%modules_dir/kernel/drivers/gpu/arm/midgard/
 %endif
 
 %files -n kernel-modules-drm-nouveau-%flavour
