@@ -22,8 +22,6 @@
 
 static bool unstable_ioctls;
 module_param_unsafe(unstable_ioctls, bool, 0600);
-static bool enable_broken_machines;
-module_param_unsafe(enable_broken_machines, bool, 0600);
 
 static int panfrost_ioctl_get_param(struct drm_device *ddev, void *data, struct drm_file *file)
 {
@@ -451,27 +449,6 @@ int panfrost_unstable_ioctl_check(void)
 	return 0;
 }
 
-static const struct of_device_id broken_machines_list[] = {
-	{ .compatible = "baikal,baikal-m" },
-	{},
-};
-
-static int panfrost_broken_machine_check(void) {
-	size_t i;
-
-	if (enable_broken_machines)
-		return 0;
-
-	for (i = 0; i < ARRAY_SIZE(broken_machines_list); i++) {
-		const char *known_bad = broken_machines_list[i].compatible;
-		if (known_bad && of_device_is_compatible(of_root, known_bad)) {
-			pr_warn("panfrost: refusing to load on %s without enable_broken_machines\n", known_bad);
-			return -ENODEV;
-		}
-	}
-	return 0;
-}
-
 #define PFN_4G		(SZ_4G >> PAGE_SHIFT)
 #define PFN_4G_MASK	(PFN_4G - 1)
 #define PFN_16M		(SZ_16M >> PAGE_SHIFT)
@@ -609,10 +586,6 @@ static int panfrost_probe(struct platform_device *pdev)
 	pfdev->comp = of_device_get_match_data(&pdev->dev);
 	if (!pfdev->comp)
 		return -ENODEV;
-
-	err = panfrost_broken_machine_check();
-	if (err < 0)
-		return err;
 
 	pfdev->coherent = device_get_dma_attr(&pdev->dev) == DEV_DMA_COHERENT;
 
