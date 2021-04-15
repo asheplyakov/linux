@@ -1,0 +1,3 @@
+[arm64]
+baikalm.local ansible_user=root
+edelweiss.local ansible_user=root
