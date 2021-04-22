@@ -76,6 +76,7 @@ static int baikal_vdu_primary_plane_atomic_check(struct drm_plane *plane,
 	/* release clock domain reset; enable clocking */
 	cntl = readl(priv->regs + PCTR);
 	cntl |= PCTR_PCR + PCTR_PCI;
+	writel(cntl, priv->regs + PCTR);
 
 	return ret;
 }
