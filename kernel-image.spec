@@ -680,6 +680,9 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 * Wed Mar 31 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.4.109-alt1
 - v5.4.109
 
+* Tue Mar 23 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.4.107-alt0.c9f
+- v5.4.107  (Fixes: CVE-2019-2308)
+
 * Fri Mar 12 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.23-alt1
 - v5.10.23
 - get rid of drm-radeon package (moved into drm)
