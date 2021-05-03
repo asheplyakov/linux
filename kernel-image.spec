@@ -128,7 +128,7 @@ Provides: kernel-modules-kvm-%flavour = %version-%release
 Provides: kernel-modules-kvm-%kversion-%flavour-%krelease = %version-%release
 
 %if_enabled docs
-BuildRequires: python3-module-sphinx /usr/bin/sphinx-build perl-Pod-Usage python3-module-sphinx_rtd_theme
+BuildRequires: python3-module-sphinx python3-module-sphinx-sphinx-build-symlink perl-Pod-Usage python3-module-sphinx_rtd_theme
 BuildRequires: fontconfig
 %endif
 
