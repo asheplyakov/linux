@@ -981,6 +981,17 @@ static const struct dmi_system_id __initconst i8042_dmi_kbdreset_table[] = {
 	{ }
 };
 
+static const struct dmi_system_id __initconst i8042_dmi_dumbkbd_table[] = {
+	{
+		/* HP 15s-fq2xxx - keyboard */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HP"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP Laptop 15s-fq2xxx"),
+		},
+	},
+	{ }
+};
+
 #endif /* CONFIG_X86 */
 
 #ifdef CONFIG_PNP
@@ -1300,6 +1311,9 @@ static int __init i8042_platform_init(void)
 
 	if (dmi_check_system(i8042_dmi_kbdreset_table))
 		i8042_kbdreset = true;
+
+	if (dmi_check_system(i8042_dmi_dumbkbd_table))
+		i8042_dumbkbd = true;
 
 	/*
 	 * A20 was already enabled during early kernel init. But some buggy
