@@ -995,6 +995,17 @@ static const struct dmi_system_id __initconst i8042_dmi_kbdreset_table[] = {
 	{ }
 };
 
+static const struct dmi_system_id __initconst i8042_dmi_dumbkbd_table[] = {
+	{
+		/* HP 15s-fq2xxx - keyboard */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HP"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP Laptop 15s-fq2xxx"),
+		},
+	},
+	{ }
+};
+
 static const struct dmi_system_id i8042_dmi_probe_defer_table[] __initconst = {
 	{
 		/* ASUS ZenBook UX425UA */
@@ -1333,6 +1344,8 @@ static int __init i8042_platform_init(void)
 	if (dmi_check_system(i8042_dmi_kbdreset_table))
 		i8042_kbdreset = true;
 
+	if (dmi_check_system(i8042_dmi_dumbkbd_table))
+		i8042_dumbkbd = true;
 	if (dmi_check_system(i8042_dmi_probe_defer_table))
 		i8042_probe_defer = true;
 
