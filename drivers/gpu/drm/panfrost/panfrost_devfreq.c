@@ -124,6 +124,11 @@ int panfrost_devfreq_init(struct panfrost_device *pfdev)
 	int ret;
 	struct dev_pm_opp *opp;
 
+	if (of_device_is_compatible(of_root, "baikal,baikal-m")) {
+		dev_info(pfdev->dev, "disabling GPU devfreq on BE-M1000\n");
+		return 0;
+	}
+
 	ret = dev_pm_opp_of_add_table(&pfdev->pdev->dev);
 	if (ret == -ENODEV) /* Optional, continue without devfreq */
 		return 0;
