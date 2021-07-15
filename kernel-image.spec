@@ -103,9 +103,6 @@ ExclusiveArch: i586 x86_64 ppc64le aarch64 armh
 ExclusiveOS: Linux
 
 BuildRequires(pre): rpm-build-kernel
-%ifarch %ix86 x86_64
-BuildRequires: dev86
-%endif
 BuildRequires: flex
 BuildRequires: libdb4-devel
 BuildRequires: gcc%kgcc_version gcc%kgcc_version-c++
