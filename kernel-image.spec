@@ -2,7 +2,7 @@ Name: kernel-image-@kflavour@
 Release: alt1
 epoch:2
 %define kernel_base_version	5.10
-%define kernel_sublevel .49
+%define kernel_sublevel .50
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 # Numeric extra version scheme developed by Alexander Bokovoy:
@@ -662,6 +662,9 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %modules_dir/kernel/drivers/staging/
 
 %changelog
+* Fri Jul 16 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.50-alt1
+- v5.10.50
+
 * Mon Jul 12 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.49-alt1
 - v5.10.49
 
