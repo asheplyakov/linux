@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt2
+Release: alt3
 epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .54
@@ -682,6 +682,10 @@ grep -qE '^(\[ *[0-9]+\.[0-9]+\] *)?reboot: Power down' boot.log || {
 %modules_dir/kernel/drivers/staging/
 
 %changelog
+* Fri Aug 06 2021 Dmitry Terekhin <jqt4@altlinux.org> 2:5.10.54-alt3
+- Enable panfrost driver by default.
+- Moved non-DRM Mali Midgard GPU driver into subpackage.
+
 * Tue Aug 03 2021 Gleb F-Malinovskiy <glebfm@altlinux.org> 2:5.10.54-alt2
 - Bumped release to pesign with new key.
 
