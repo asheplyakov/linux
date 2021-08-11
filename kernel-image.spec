@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .57
@@ -696,6 +696,10 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Wed Aug 11 2021 Gleb F-Malinovskiy <glebfm@altlinux.org> 2:5.10.57-alt2
+- Bumped release to pesign (alt1 was not pesigned, sorry).
+- Added -checkinstall subpackage to verify EFI-stub signature.
+
 * Tue Aug 10 2021 Gleb F-Malinovskiy <glebfm@altlinux.org> 2:5.10.57-alt1
 - Updated to v5.10.57.
 - Reintroduced argv+env 512K size limit for suid/sgid programs and also enforce
