@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .62
@@ -696,6 +696,9 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Mon Sep 06 2021 Dmitry Terekhin <jqt4@altlinux.org> 2:5.10.62-alt2
+- Disable all sleep states on BE-M1000 based boards.
+
 * Fri Sep 03 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.62-alt1
 - v5.10.62
 
