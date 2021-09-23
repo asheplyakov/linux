@@ -2,7 +2,7 @@ Name: kernel-image-@kflavour@
 Release: alt1
 epoch:2
 %define kernel_base_version	5.10
-%define kernel_sublevel .66
+%define kernel_sublevel .68
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 # Numeric extra version scheme developed by Alexander Bokovoy:
@@ -696,6 +696,9 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Thu Sep 23 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.68-alt1
+- v5.10.68  (Fixes: CVE-2017-6074, CVE-2020-16119)
+
 * Thu Sep 16 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.66-alt1
 - v5.10.66
 
