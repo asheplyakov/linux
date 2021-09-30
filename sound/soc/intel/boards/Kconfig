@@ -560,4 +560,42 @@ config SND_SOC_INTEL_SOUNDWIRE_SOF_MACH
 endif
 
 
+if SND_SOC_SOF_CANNONLAKE || SND_SOC_SOF_COFFEELAKE
+
+config SND_SOC_INTEL_SOF_ES8316_MACH
+	tristate "SOF with ES8316 codec in I2S Mode"
+	depends on I2C && ACPI && GPIOLIB
+	select SND_SOC_DMIC
+	select SND_SOC_HDAC_HDMI
+	select SND_SOC_INTEL_HDA_DSP_COMMON
+	help
+	   This adds support for ASoC machine driver for SOF platforms
+	   with ES8316 I2S audio codec.
+	   Say Y if you have such a device.
+	   If unsure select "N".
+
+config SND_SOC_INTEL_SOF_ESSX8336_MACH
+	tristate "SOF with ESSX8336 codec"
+	depends on I2C && ACPI
+	select SND_SOC_ES8336
+	help
+	  This adds support for ASoC machine driver for SOF platforms
+	  with ES8336 I2S audio codec.
+	  Say Y or m if you have such a device.
+	  If unsure select "N".
+
+config SND_SOC_INTEL_CNL_ES8336_MACH
+	tristate "ASoC with ES8336 codec"
+	depends on I2C && ACPI
+	depends on X86_INTEL_LPSS || COMPILE_TEST
+	select SND_SOC_ES8336
+	select SND_SOC_ACPI
+	help
+	  This adds support for ASoC machine with ES8336 audio codec.
+	  Say Y or m if you have such a device. This is a recommended option.
+	  If unsure select "N".
+
+endif ## SND_SOC_SOF_CANNONLAKE || SND_SOC_SOF_COFFEELAKE
+
+
 endif ## SND_SOC_INTEL_MACH
