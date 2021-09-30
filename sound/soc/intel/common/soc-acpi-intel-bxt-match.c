@@ -46,7 +46,25 @@ static struct snd_soc_acpi_codecs bxt_codecs = {
 	.codecs = {"MX98357A"}
 };
 
+#ifdef CONFIG_SND_SOC_ES8336
+static struct snd_soc_acpi_codecs essx8336_spk_codecs = {
+	.num_codecs = 1,
+	.codecs = {"ESSX8336"}
+};
+#endif
+
 struct snd_soc_acpi_mach snd_soc_acpi_intel_bxt_machines[] = {
+#ifdef CONFIG_SND_SOC_ES8336
+	{
+		.id = "ESSX8336",
+		.drv_name = "sof-essx8336",
+		.fw_filename = "intel/dsp_fw_glk.bin",
+		.machine_quirk = snd_soc_acpi_codec_list,
+		.quirk_data = &essx8336_spk_codecs,
+		.sof_fw_filename = "sof-glk.ri",
+		.sof_tplg_filename = "sof-glk-es8336-ssp1.tplg",
+	},
+#endif
 	{
 		.id = "INT343A",
 		.drv_name = "bxt_alc298s_i2s",

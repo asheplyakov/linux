@@ -92,6 +92,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_ES8316
 	imply SND_SOC_ES8328_SPI
 	imply SND_SOC_ES8328_I2C
+	imply SND_SOC_ES8336
 	imply SND_SOC_ES7134
 	imply SND_SOC_ES7241
 	imply SND_SOC_GTM601
@@ -790,6 +791,10 @@ config SND_SOC_ES8328_SPI
 	depends on SPI_MASTER
 	select SND_SOC_ES8328
 
+config SND_SOC_ES8336
+	tristate "Everest Semi ES8336 CODEC"
+	depends on I2C
+
 config SND_SOC_GTM601
 	tristate 'GTM601 UMTS modem audio codec'
 
@@ -1026,6 +1031,8 @@ config SND_SOC_RK3328
 
 config SND_SOC_RL6231
 	tristate
+	default y if SND_SOC_ES8316=y
+	default y if SND_SOC_ES8336=y
 	default y if SND_SOC_RT5514=y
 	default y if SND_SOC_RT5616=y
 	default y if SND_SOC_RT5640=y

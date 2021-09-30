@@ -29,6 +29,15 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_icl_machines[] = {
 		.sof_fw_filename = "sof-icl.ri",
 		.sof_tplg_filename = "sof-icl-rt5682.tplg",
 	},
+#ifdef CONFIG_SND_SOC_ES8336
+	{
+		.id = "ESSX8336",
+		.drv_name = "sof-essx8336",
+		.sof_fw_filename = "sof-jsl.ri",
+		.sof_tplg_filename = "sof-glk-es8336-ssp0.tplg",
+
+	},
+#endif
 	{},
 };
 EXPORT_SYMBOL_GPL(snd_soc_acpi_intel_icl_machines);
