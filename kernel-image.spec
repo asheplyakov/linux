@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt1.1
 epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .69
@@ -696,6 +696,9 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Thu Sep 30 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.69-alt1.1
+- ES8336 support
+
 * Sun Sep 26 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.69-alt1
 - v5.10.69
 
