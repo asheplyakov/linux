@@ -24,7 +24,7 @@ static struct snd_soc_acpi_codecs max98390_spk_codecs = {
 	.codecs = {"MX98390"}
 };
 
-#ifdef CONFIG_SND_SOC_ES8336
+#if IS_ENABLED(CONFIG_SND_SOC_ES8336)
 static struct snd_soc_acpi_codecs essx8336_spk_codecs = {
 	.num_codecs = 1,
 	.codecs = {"ESSX8336"}
@@ -75,7 +75,7 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_cml_machines[] = {
 		.sof_fw_filename = "sof-cml.ri",
 		.sof_tplg_filename = "sof-cml-da7219-max98357a.tplg",
 	},
-#ifdef CONFIG_SND_SOC_ES8336
+#if IS_ENABLED(CONFIG_SND_SOC_ES8336)
 	{
 		.id = "ESSX8336",
 		.drv_name = "sof-essx8336",
