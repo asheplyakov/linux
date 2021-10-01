@@ -10,7 +10,7 @@
 #include <sound/soc-acpi-intel-match.h>
 #include "../skylake/skl.h"
 
-#ifdef CONFIG_SND_SOC_ES8336
+#if IS_ENABLED(CONFIG_SND_SOC_ES8336)
 static struct snd_soc_acpi_codecs bxt_codecs =
 {
 	.num_codecs = 1,
@@ -19,7 +19,7 @@ static struct snd_soc_acpi_codecs bxt_codecs =
 #endif
 
 struct snd_soc_acpi_mach snd_soc_acpi_intel_cfl_machines[] = {
-#ifdef CONFIG_SND_SOC_ES8336
+#if IS_ENABLED(CONFIG_SND_SOC_ES8336)
 	{
 		.id = "ESSX8336",
 		.drv_name = "sof-essx8336",

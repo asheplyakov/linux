@@ -404,7 +404,7 @@ int snd_intel_dsp_driver_probe(struct pci_dev *pci)
 	}
 
 /* backport: force SOF for 8086:9dc8 */
-#ifdef CONFIG_SND_SOC_ES8336
+#if IS_ENABLED(CONFIG_SND_SOC_ES8336)
 	if(pci->device == 0x9dc8) /* Cannon Point-LP */
 		return SND_INTEL_DSP_DRIVER_SOF;
 #endif
