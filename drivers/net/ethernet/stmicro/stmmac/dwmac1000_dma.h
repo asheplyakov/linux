@@ -19,7 +19,7 @@ void dwmac1000_dma_operation_mode_tx(void __iomem *ioaddr, int mode,
 				     u32 channel, int fifosz, u8 qmode);
 void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space);
 
-void dwmac1000_get_hw_feature(void __iomem *ioaddr,
+int dwmac1000_get_hw_feature(void __iomem *ioaddr,
 			      struct dma_features *dma_cap);
 
 void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt, u32 number_chan);
