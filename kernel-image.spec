@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .81
@@ -702,6 +702,14 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Thu Nov 25 2021 Dmitry Terekhin <jqt4@altlinux.org> 2:5.10.81-alt2
+- Update baikal_minimal_defconfig
+- Update BE-M1000 clock driver
+- Update BE-M1000 dwmac driver
+- Update BE-M1000 video unit driver
+- Add BE-M1000 serio PS/2 emulator driver
+- Disable pcie-baikal driver build
+
 * Mon Nov 22 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.81-alt1
 - v5.10.81
 
