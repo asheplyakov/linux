@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .81
@@ -702,6 +702,9 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Fri Nov 26 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.81-alt2
+- Add support for debian-specific kernel.unprivileged_userns_clone parameter
+
 * Mon Nov 22 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.81-alt1
 - v5.10.81
 
