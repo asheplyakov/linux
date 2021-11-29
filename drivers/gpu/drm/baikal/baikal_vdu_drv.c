@@ -23,13 +23,10 @@
 #include <linux/arm-smccc.h>
 #include <linux/irq.h>
 #include <linux/clk.h>
-#include <linux/shmem_fs.h>
-#include <linux/dma-buf.h>
+#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <linux/workqueue.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
@@ -64,6 +61,26 @@ static struct drm_mode_config_funcs mode_config_funcs = {
 
 static const struct drm_encoder_funcs baikal_vdu_encoder_funcs = {
 	.destroy = drm_encoder_cleanup,
+};
+
+DEFINE_DRM_GEM_CMA_FOPS(drm_fops);
+
+static struct drm_driver vdu_drm_driver = {
+	.driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM |
+			DRIVER_MODESET | DRIVER_ATOMIC,
+	.irq_handler = baikal_vdu_irq,
+	.ioctls = NULL,
+	.fops = &drm_fops,
+	.name = DRIVER_NAME,
+	.desc = DRIVER_DESC,
+	.date = DRIVER_DATE,
+	.major = 1,
+	.minor = 0,
+	.patchlevel = 0,
+	DRM_GEM_CMA_DRIVER_OPS,
+#if defined(CONFIG_DEBUG_FS)
+	.debugfs_init = baikal_vdu_debugfs_init,
+#endif
 };
 
 static int vdu_modeset_init(struct drm_device *dev)
@@ -179,40 +196,32 @@ finish:
 	return ret;
 }
 
-static const struct file_operations drm_fops = {
-	.owner = THIS_MODULE,
-	.open = drm_open,
-	.release = drm_release,
-	.unlocked_ioctl = drm_ioctl,
-	.mmap = drm_gem_cma_mmap,
-	.poll = drm_poll,
-	.read = drm_read,
-};
 
-static struct drm_driver vdu_drm_driver = {
-	.driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM |
-			DRIVER_MODESET | DRIVER_ATOMIC,
-	.irq_handler = baikal_vdu_irq,
-	.ioctls = NULL,
-	.fops = &drm_fops,
-	.name = DRIVER_NAME,
-	.desc = DRIVER_DESC,
-	.date = DRIVER_DATE,
-	.major = 1,
-	.minor = 0,
-	.patchlevel = 0,
-	.dumb_create = drm_gem_cma_dumb_create,
-	.gem_create_object = drm_gem_cma_create_object_default_funcs,
-	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
-	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
-	.gem_prime_import = drm_gem_prime_import,
-	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
-	.gem_prime_export = drm_gem_prime_export,
-	.gem_prime_mmap = drm_gem_cma_prime_mmap,
-#if defined(CONFIG_DEBUG_FS)
-	.debugfs_init = baikal_vdu_debugfs_init,
-#endif
-};
+static int vdu_maybe_enable_lvds(struct baikal_vdu_private *vdu)
+{
+	int err = 0;
+	struct device *dev;
+	if (!vdu->drm) {
+		pr_err("%s: vdu->drm is NULL\n", __func__);
+		return -EINVAL;
+	}
+	dev = vdu->drm->dev;
+
+	vdu->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_LOW);
+	if (IS_ERR(vdu->enable_gpio)) {
+		err = (int)PTR_ERR(vdu->enable_gpio);
+		dev_err(dev, "failed to get enable-gpios, error %d\n", err);
+		vdu->enable_gpio = NULL;
+		return err;
+	}
+	if (vdu->enable_gpio) {
+		dev_dbg(dev, "%s: setting enable-gpio\n", __func__);
+		gpiod_set_value_cansleep(vdu->enable_gpio, 1);
+	} else {
+		dev_dbg(dev, "%s: no enable-gpios, assuming it's handled by panel-lvds\n", __func__);
+	}
+	return 0;
+}
 
 static int baikal_vdu_drm_probe(struct platform_device *pdev)
 {
@@ -248,12 +257,11 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 	/* turn off interrupts before requesting the irq */
 	writel(0, priv->regs + IMR);
 
-	if (!(irq = platform_get_irq(pdev, 0))) {
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
 		dev_err(dev, "%s no IRQ resource specified\n", __func__);
 		return -EINVAL;
 	}
-
-	spin_lock_init(&priv->lock);
 
 	ret = drm_irq_install(drm, irq);
 	if (ret != 0) {
@@ -275,9 +283,16 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 		goto dev_unref;
 	}
 
+	ret = vdu_maybe_enable_lvds(priv);
+	if (ret != 0) {
+		dev_err(dev, "failed to enable LVDS\n");
+	}
+
 	return 0;
 
 dev_unref:
+	writel(0, priv->regs + IMR);
+	writel(0x3ffff, priv->regs + ISR);
 	drm_irq_uninstall(drm);
 	drm->dev_private = NULL;
 	drm_dev_put(drm);
@@ -286,7 +301,12 @@ dev_unref:
 
 static int baikal_vdu_drm_remove(struct platform_device *pdev)
 {
-	struct drm_device *drm = platform_get_drvdata(pdev);
+	struct drm_device *drm;
+
+	drm = platform_get_drvdata(pdev);
+	if (!drm) {
+		return -1;
+	}
 
 	drm_dev_unregister(drm);
 	drm_mode_config_cleanup(drm);

@@ -259,7 +259,7 @@ void baikal_vdu_crtc_helper_disable(struct drm_crtc *crtc)
 }
 
 static void baikal_vdu_crtc_helper_atomic_flush(struct drm_crtc *crtc,
-					   struct drm_crtc_state *old_state)
+						struct drm_crtc_state *old_state)
 {
 	struct drm_pending_vblank_event *event = crtc->state->event;
 

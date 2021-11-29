@@ -708,6 +708,14 @@ check-pesign-helper
 * Fri Nov 26 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.81-alt2
 - Add support for debian-specific kernel.unprivileged_userns_clone parameter
 
+* Thu Nov 25 2021 Dmitry Terekhin <jqt4@altlinux.org> 2:5.10.81-alt2
+- Update baikal_minimal_defconfig
+- Update BE-M1000 clock driver
+- Update BE-M1000 dwmac driver
+- Update BE-M1000 video unit driver
+- Add BE-M1000 serio PS/2 emulator driver
+- Disable pcie-baikal driver build
+
 * Mon Nov 22 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.81-alt1
 - v5.10.81
 

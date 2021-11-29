@@ -38,13 +38,14 @@ struct baikal_vdu_private {
 
 	void *regs;
 	struct clk *clk;
-	spinlock_t lock;
 	u32 counters[20];
 	int mode_fixup;
 	int type;
 	u32 ep_count;
 	u32 fb_addr;
 	u32 fb_end;
+
+	struct gpio_desc *enable_gpio;
 };
 
 /* CRTC Functions */
