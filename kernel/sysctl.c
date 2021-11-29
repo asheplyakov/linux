@@ -122,6 +122,11 @@ static int ten_thousand = 10000;
 #ifdef CONFIG_PERF_EVENTS
 static int six_hundred_forty_kb = 640 * 1024;
 #endif
+#ifdef CONFIG_USER_NS
+extern int sysctl_userns_restrict;
+#endif
+extern int sysctl_idmap_mounts;
+
 
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
 static unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
@@ -2311,6 +2316,15 @@ static struct ctl_table kern_table[] = {
 		.extra2		= SYSCTL_TWO,
 	},
 #endif
+	{
+		.procname       = "idmap_mounts",
+		.data           = &sysctl_idmap_mounts,
+		.maxlen         = sizeof(int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec_minmax,
+		.extra1         = SYSCTL_ZERO,
+		.extra2         = SYSCTL_ONE,
+	},
 	{
 		.procname	= "ngroups_max",
 		.data		= &ngroups_max,
