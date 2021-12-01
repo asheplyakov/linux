@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:2
 %define kernel_base_version	5.10
 %define kernel_sublevel .82
@@ -702,6 +702,9 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Wed Dec 01 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.82-alt2
+- merged changes from jqt4@ 2:5.10.81-alt2
+
 * Fri Nov 26 2021 Kernel Bot <kernelbot@altlinux.org> 2:5.10.82-alt1
 - v5.10.82  (Fixes: CVE-2020-27820, CVE-2021-43267)
 
