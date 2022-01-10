@@ -1344,13 +1344,10 @@ static int __init i8042_platform_init(void)
 	if (dmi_check_system(i8042_dmi_kbdreset_table))
 		i8042_kbdreset = true;
 
-<<<<<<< HEAD
 	if (dmi_check_system(i8042_dmi_dumbkbd_table))
 		i8042_dumbkbd = true;
-=======
 	if (dmi_check_system(i8042_dmi_probe_defer_table))
 		i8042_probe_defer = true;
->>>>>>> v5.10.90
 
 	/*
 	 * A20 was already enabled during early kernel init. But some buggy
