@@ -243,8 +243,13 @@ static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * f
 	struct altha_list_struct *node;
 	/* when it's not a shebang issued script interpreter */
 	if (rstrscript_enabled && bprm->executable == bprm->interpreter) {
-		char path_buffer[PATH_MAX];
 		char *path_p;
+		char *path_buffer;
+
+		path_buffer = kmalloc(PATH_MAX, GFP_KERNEL);
+		if (!path_buffer)
+			return -ENOMEM;
+
 		path_p = d_path(&bprm->file->f_path,path_buffer,PATH_MAX);
 		down_read(&interpreters_sem);
 		list_for_each_entry(node, &interpreters_list, list) {
@@ -255,16 +260,24 @@ static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * f
 				    ("AltHa/RestrScript: %s is blocked to run directly by %d\n",
 				     bprm->filename, cur_uid);
 				up_read(&interpreters_sem);
+				kfree(path_buffer);
 				return -EPERM;
 			}
 		}
 		up_read(&interpreters_sem);
+		kfree(path_buffer);
 	}
 	if (unlikely(nosuid_enabled &&
 		     !uid_eq(bprm->cred->uid, bprm->cred->euid))) {
-		char path_buffer[PATH_MAX];
 		char *path_p;
-		uid_t cur_uid = from_kuid(bprm->cred->user_ns, bprm->cred->uid);
+		char *path_buffer;
+		uid_t cur_uid;
+
+		path_buffer = kmalloc(PATH_MAX, GFP_KERNEL);
+		if (!path_buffer)
+			return -ENOMEM;
+
+		cur_uid = from_kuid(bprm->cred->user_ns, bprm->cred->uid);
 		path_p = d_path(&bprm->file->f_path,path_buffer,PATH_MAX);
 		down_read(&nosuid_exceptions_sem);
 		list_for_each_entry(node, &nosuid_exceptions_list, list) {
@@ -273,6 +286,7 @@ static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * f
 				    ("AltHa/NoSUID: %s permitted to setuid from %d\n",
 				     bprm->filename, cur_uid);
 				up_read(&nosuid_exceptions_sem);
+				kfree(path_buffer);
 				return 0;
 			}
 		}
@@ -281,6 +295,7 @@ static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * f
 		    ("AltHa/NoSUID: %s prevented to setuid from %d\n",
 		     bprm->filename, cur_uid);
 		bprm->cred->euid = bprm->cred->uid;
+		kfree(path_buffer);
 	}
 	return 0;
 }
