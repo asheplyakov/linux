@@ -56,6 +56,7 @@ properties:
         - amlogic,meson8m2-dwmac
         - amlogic,meson-gxbb-dwmac
         - amlogic,meson-axg-dwmac
+        - baikal,dwmac
         - snps,dwmac
         - snps,dwmac-3.50a
         - snps,dwmac-3.610
