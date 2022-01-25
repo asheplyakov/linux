@@ -105,6 +105,9 @@ static const struct of_device_id blocklist[] __initconst = {
 
 	{ .compatible = "arm,vexpress", },
 
+	{ .compatible = "baikal,baikal-m", },
+	{ .compatible = "baikal,bm1000", },
+
 	{ .compatible = "calxeda,highbank", },
 	{ .compatible = "calxeda,ecx-2000", },
 
