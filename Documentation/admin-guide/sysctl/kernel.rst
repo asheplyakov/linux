@@ -267,6 +267,22 @@ domain names are in general different. For a detailed discussion
 see the ``hostname(1)`` man page.
 
 
+idmap_mounts
+============
+
+Writing 0 to this entry will disable creating idmapped mounts,
+however, an admin can still change this setting later on, if needed, by
+writing 1 to this entry.
+
+If ``IDMAP_MOUNTS_DEFAULT_OFF`` is enabled in the kernel config, then this
+entry will default to 0 instead of 1.
+
+= =============================================================
+0 Idmapped mounts are enabled
+1 Idmapped mounts are disabled
+= =============================================================
+
+
 firmware_config
 ===============
 

@@ -393,4 +393,11 @@ source "fs/unicode/Kconfig"
 config IO_WQ
 	bool
 
+config IDMAP_MOUNTS_DEFAULT_OFF
+       bool "Disable idmappad mounts by default"
+       help
+         Disables idmapped by default by setting the corresponding
+         /proc/sys/kernel/idmap_mounts knob to 1. An admin can
+         still reenable it by setting it to 0 later on.
+
 endmenu

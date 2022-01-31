@@ -44,6 +44,9 @@ static unsigned int m_hash_shift __read_mostly;
 static unsigned int mp_hash_mask __read_mostly;
 static unsigned int mp_hash_shift __read_mostly;
 
+int sysctl_idmap_mounts __read_mostly =
+	IS_BUILTIN(CONFIG_IDMAP_MOUNTS_DEFAULT_OFF) ? 0 : 1;
+
 static __initdata unsigned long mhash_entries;
 static int __init set_mhash_entries(char *str)
 {
@@ -4011,7 +4014,13 @@ static int can_idmap_mount(const struct mount_kattr *kattr, struct mount *mnt)
 	if (!is_anon_ns(mnt->mnt_ns))
 		return -EINVAL;
 
-	return 0;
+	/* So far, there are serious concerns about the safety of idmaps. */
+	if( sysctl_idmap_mounts ) {
+		return 0;
+	} else {
+		pr_warn_once("VFS: idmapped mount is not enabled.\n");
+		return -EPERM;
+	}
 }
 
 /**
