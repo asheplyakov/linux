@@ -37,7 +37,6 @@
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
-#include <drm/drm_irq.h>
 #include <drm/drm_of.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
@@ -66,9 +65,7 @@ static const struct drm_encoder_funcs baikal_vdu_encoder_funcs = {
 DEFINE_DRM_GEM_CMA_FOPS(drm_fops);
 
 static struct drm_driver vdu_drm_driver = {
-	.driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM |
-			DRIVER_MODESET | DRIVER_ATOMIC,
-	.irq_handler = baikal_vdu_irq,
+	.driver_features = DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC,
 	.ioctls = NULL,
 	.fops = &drm_fops,
 	.name = DRIVER_NAME,
@@ -97,9 +94,9 @@ static int vdu_modeset_init(struct drm_device *dev)
 	mode_config = &dev->mode_config;
 	mode_config->funcs = &mode_config_funcs;
 	mode_config->min_width = 1;
-	mode_config->max_width = 4096;
+	mode_config->max_width = 4095;
 	mode_config->min_height = 1;
-	mode_config->max_height = 4096;
+	mode_config->max_height = 4095;
 
 	ret = baikal_vdu_primary_plane_init(dev);
 	if (ret != 0) {
@@ -126,6 +123,7 @@ static int vdu_modeset_init(struct drm_device *dev)
 		goto out_config;
 	}
 	priv->ep_count = ep_count;
+	dev_dbg(dev->dev, "panel/bridge has %d endpoints\n", priv->ep_count);
 
 	if (priv->bridge) {
 		struct drm_encoder *encoder = &priv->encoder;
@@ -197,6 +195,25 @@ finish:
 }
 
 
+static int baikal_vdu_irq_install(struct baikal_vdu_private *priv, int irq)
+{
+	int ret;
+	ret= request_irq(irq, baikal_vdu_irq, 0, DRIVER_NAME, priv->drm);
+	if (ret < 0)
+		return ret;
+	priv->irq_enabled = true;
+	return 0;
+}
+
+static void baikal_vdu_irq_uninstall(struct baikal_vdu_private *priv)
+{
+	if (priv->irq_enabled) {
+		priv->irq_enabled = false;
+		disable_irq(priv->irq);
+		free_irq(priv->irq, priv->drm);
+	}
+}
+
 static int vdu_maybe_enable_lvds(struct baikal_vdu_private *vdu)
 {
 	int err = 0;
@@ -262,8 +279,9 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 		dev_err(dev, "%s no IRQ resource specified\n", __func__);
 		return -EINVAL;
 	}
+	priv->irq = irq;
 
-	ret = drm_irq_install(drm, irq);
+	ret = baikal_vdu_irq_install(priv, irq);
 	if (ret != 0) {
 		dev_err(dev, "%s IRQ %d allocation failed\n", __func__, irq);
 		return ret;
@@ -293,7 +311,7 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 dev_unref:
 	writel(0, priv->regs + IMR);
 	writel(0x3ffff, priv->regs + ISR);
-	drm_irq_uninstall(drm);
+	baikal_vdu_irq_uninstall(priv);
 	drm->dev_private = NULL;
 	drm_dev_put(drm);
 	return ret;
@@ -302,15 +320,17 @@ dev_unref:
 static int baikal_vdu_drm_remove(struct platform_device *pdev)
 {
 	struct drm_device *drm;
+	struct baikal_vdu_private *priv;
 
 	drm = platform_get_drvdata(pdev);
 	if (!drm) {
 		return -1;
 	}
+	priv = drm->dev_private;
 
 	drm_dev_unregister(drm);
 	drm_mode_config_cleanup(drm);
-	drm_irq_uninstall(drm);
+	baikal_vdu_irq_uninstall(priv);
 	drm->dev_private = NULL;
 	drm_dev_put(drm);
 

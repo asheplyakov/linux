@@ -1,24 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Baikal Electronics SoCs DWMAC glue layer
+ * Baikal-T1/M SoCs DWMAC glue layer
  *
- * Copyright (C) 2015,2016 Baikal Electronics JSC
- * Author:
- *   Dmitry Dunaev <dmitry.dunaev@baikalelectronics.ru>
- * All bugs by Alexey Sheplyakov <asheplyakov@altlinux.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (C) 2015,2016,2021 Baikal Electronics JSC
+ * Copyright (C) 2020-2022 BaseALT Ltd
+ * Authors: Dmitry Dunaev <dmitry.dunaev@baikalelectronics.ru>
+ *          Alexey Sheplyakov <asheplyakov@basealt.ru>
  */
 
+#include <linux/clk.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/clk.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -26,42 +20,49 @@
 #include "dwmac_dma.h"
 #include "dwmac1000_dma.h"
 
-#define MAC_GPIO	0x000000e0	/* GPIO register */
-#define MAC_GPIO_GPO0	(1 << 8)	/* 0-output port */
+#define MAC_GPIO	0x00e0	/* GPIO register */
+#define MAC_GPIO_GPO	BIT(8)	/* Output port */
 
 struct baikal_dwmac {
 	struct device	*dev;
 	struct clk	*tx2_clk;
 };
 
-static void clear_phy_reset(void __iomem *ioaddr)
-{
-	u32 value;
-	value = readl(ioaddr + MAC_GPIO);
-	value |= MAC_GPIO_GPO0;
-	writel(value, ioaddr + MAC_GPIO);
-}
-
 static int baikal_dwmac_dma_reset(void __iomem *ioaddr)
 {
-	int err;
-	u32 value = readl(ioaddr + DMA_BUS_MODE);
+	u32 value;
 
 	/* DMA SW reset */
+	value = readl(ioaddr + DMA_BUS_MODE);
 	value |= DMA_BUS_MODE_SFT_RESET;
 	writel(value, ioaddr + DMA_BUS_MODE);
 
-	udelay(10);
-	clear_phy_reset(ioaddr);
-	pr_info("PHY re-inited for Baikal DWMAC\n");
+	/* Software DMA reset also resets MAC, so GP_OUT is set to zero.
+	 * Which resets PHY as a side effect (if GP_OUT is connected directly
+	 * to PHY reset).
+	 * TODO: read the PHY reset duration from the device tree.
+	 * Meanwhile use 100 milliseconds which seems to be enough for
+	 * most PHYs
+	 */
+	usleep_range(100000, 120000);
 
-	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
-				 !(value & DMA_BUS_MODE_SFT_RESET),
-				 10000, 1000000);
-	if (err)
-		return -EBUSY;
+	/* Clear PHY reset */
+	value = readl(ioaddr + MAC_GPIO);
+	value |= MAC_GPIO_GPO;
+	writel(value, ioaddr + MAC_GPIO);
 
-	return 0;
+	/* Many PHYs need ~ 100 milliseconds to calm down after PHY reset
+	 * has been cleared. And check for DMA reset below might return
+	 * much earlier (i.e. in ~ 20 milliseconds). As a result reading
+	 * PHY registers (after this function returns) might return garbage.
+	 * Wait a bit to avoid the problem.
+	 * TODO: read PHY post-reset delay from the device tree.
+	 */
+	usleep_range(100000, 150000);
+
+	return readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
+				  !(value & DMA_BUS_MODE_SFT_RESET),
+				  10000, 1000000);
 }
 
 static const struct stmmac_dma_ops baikal_dwmac_dma_ops = {
@@ -82,57 +83,59 @@ static const struct stmmac_dma_ops baikal_dwmac_dma_ops = {
 	.stop_rx = dwmac_dma_stop_rx,
 	.dma_interrupt = dwmac_dma_interrupt,
 	.get_hw_feature = dwmac1000_get_hw_feature,
-	.rx_watchdog = dwmac1000_rx_watchdog,
+	.rx_watchdog = dwmac1000_rx_watchdog
 };
 
-static struct mac_device_info* baikal_dwmac_setup(void *ppriv)
+static struct mac_device_info *baikal_dwmac_setup(void *ppriv)
 {
-	struct mac_device_info *mac, *old_mac;
+	struct mac_device_info *mac;
 	struct stmmac_priv *priv = ppriv;
 	int ret;
+	u32 value;
 
 	mac = devm_kzalloc(priv->device, sizeof(*mac), GFP_KERNEL);
 	if (!mac)
 		return NULL;
 
-	clear_phy_reset(priv->ioaddr);
+	/* Clear PHY reset */
+	value = readl(priv->ioaddr + MAC_GPIO);
+	value |= MAC_GPIO_GPO;
+	writel(value, priv->ioaddr + MAC_GPIO);
 
 	mac->dma = &baikal_dwmac_dma_ops;
-	old_mac = priv->hw;
 	priv->hw = mac;
 	ret = dwmac1000_setup(priv);
-	priv->hw = old_mac;
 	if (ret) {
 		dev_err(priv->device, "dwmac1000_setup: error %d", ret);
 		return NULL;
 	}
+
 	return mac;
 }
 
 static void baikal_dwmac_fix_mac_speed(void *priv, unsigned int speed)
 {
 	struct baikal_dwmac *dwmac = priv;
-	unsigned long tx2_clk_freq = 0;
-	dev_info(dwmac->dev, "fix_mac_speed new speed %u\n", speed);
+	unsigned long tx2_clk_freq;
+
 	switch (speed) {
-		case SPEED_1000:
-			tx2_clk_freq = 250000000;
-			break;
-		case SPEED_100:
-			tx2_clk_freq = 50000000;
-			break;
-		case SPEED_10:
-			tx2_clk_freq = 5000000;
-			break;
+	case SPEED_1000:
+		tx2_clk_freq = 250000000;
+		break;
+	case SPEED_100:
+		tx2_clk_freq = 50000000;
+		break;
+	case SPEED_10:
+		tx2_clk_freq = 5000000;
+		break;
+	default:
+		dev_warn(dwmac->dev, "invalid speed: %u\n", speed);
+		return;
 	}
-	if (dwmac->tx2_clk && tx2_clk_freq != 0) {
-		dev_info(dwmac->dev, "setting TX2 clock frequency to %lu\n", tx2_clk_freq);
-		clk_set_rate(dwmac->tx2_clk, tx2_clk_freq);
-
-	}
-
+	dev_dbg(dwmac->dev, "speed %u, setting TX2 clock frequency to %lu\n",
+		speed, tx2_clk_freq);
+	clk_set_rate(dwmac->tx2_clk, tx2_clk_freq);
 }
-
 
 static int dwmac_baikal_probe(struct platform_device *pdev)
 {
@@ -141,60 +144,43 @@ static int dwmac_baikal_probe(struct platform_device *pdev)
 	struct baikal_dwmac *dwmac;
 	int ret;
 
+	dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
+	if (!dwmac)
+		return -ENOMEM;
+
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret) {
-		dev_warn(&pdev->dev, "No suitable DMA available\n");
+		dev_err(&pdev->dev, "no suitable DMA available\n");
 		return ret;
 	}
 
-	if (pdev->dev.of_node) {
-		plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
-		if (IS_ERR(plat_dat)) {
-			dev_err(&pdev->dev, "dt configuration failed\n");
-			return PTR_ERR(plat_dat);
-		}
-	} else {
-		plat_dat = dev_get_platdata(&pdev->dev);
-		if (!plat_dat) {
-			dev_err(&pdev->dev, "no platform data provided\n");
-			return  -EINVAL;
-		}
-
-		/* Set default value for multicast hash bins */
-		plat_dat->multicast_filter_bins = HASH_TABLE_SIZE;
-
-		/* Set default value for unicast filter entries */
-		plat_dat->unicast_filter_entries = 1;
-	}
-
-	dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
-	if (!dwmac) {
-		ret = -ENOMEM;
-		goto err_remove_config_dt;
+	plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
+	if (IS_ERR(plat_dat)) {
+		dev_err(&pdev->dev, "dt configuration failed\n");
+		return PTR_ERR(plat_dat);
 	}
 
 	dwmac->dev = &pdev->dev;
-	dwmac->tx2_clk = devm_clk_get(dwmac->dev, "tx2_clk");
+	dwmac->tx2_clk = devm_clk_get_optional(dwmac->dev, "tx2_clk");
 	if (IS_ERR(dwmac->tx2_clk)) {
-		dev_warn(&pdev->dev, "coldn't get TX2 clock\n");
-		dwmac->tx2_clk = NULL;
+		ret = PTR_ERR(dwmac->tx2_clk);
+		dev_err(&pdev->dev, "couldn't get TX2 clock: %d\n", ret);
+		goto err_remove_config_dt;
 	}
-	plat_dat->fix_mac_speed = baikal_dwmac_fix_mac_speed;
-	plat_dat->bsp_priv = dwmac;
 
+	if (dwmac->tx2_clk)
+		plat_dat->fix_mac_speed = baikal_dwmac_fix_mac_speed;
+	plat_dat->bsp_priv = dwmac;
 	plat_dat->has_gmac = 1;
 	plat_dat->enh_desc = 1;
 	plat_dat->tx_coe = 1;
 	plat_dat->rx_coe = 1;
-	// TODO: set CSR correct clock in dts!
 	plat_dat->clk_csr = 3;
 	plat_dat->setup = baikal_dwmac_setup;
-
-	dev_info(&pdev->dev, "Baikal Electronics DWMAC glue driver\n");
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
@@ -204,27 +190,27 @@ static int dwmac_baikal_probe(struct platform_device *pdev)
 
 err_remove_config_dt:
 	stmmac_remove_config_dt(pdev, plat_dat);
-
 	return ret;
 }
 
 static const struct of_device_id dwmac_baikal_match[] = {
-	{ .compatible = "be,dwmac-3.710"},
-	{ .compatible = "be,dwmac"},
+	{ .compatible = "baikal,dwmac" },
+	{ .compatible = "be,dwmac" },
+	{ .compatible = "aq,dwmac" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, dwmac_baikal_match);
 
 static struct platform_driver dwmac_baikal_driver = {
-	.probe  = dwmac_baikal_probe,
-	.remove = stmmac_pltfr_remove,
-	.driver = {
-		.name           = "baikal-dwmac",
-		.pm		= &stmmac_pltfr_pm_ops,
-		.of_match_table = of_match_ptr(dwmac_baikal_match),
-	},
+	.probe	= dwmac_baikal_probe,
+	.remove	= stmmac_pltfr_remove,
+	.driver	= {
+		.name = "baikal-dwmac",
+		.pm = &stmmac_pltfr_pm_ops,
+		.of_match_table = of_match_ptr(dwmac_baikal_match)
+	}
 };
 module_platform_driver(dwmac_baikal_driver);
 
-MODULE_DESCRIPTION("Baikal dwmac glue driver");
-MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("Baikal-T1/M DWMAC driver");
+MODULE_LICENSE("GPL");

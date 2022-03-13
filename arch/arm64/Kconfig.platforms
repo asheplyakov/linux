@@ -30,7 +30,7 @@ config ARCH_ALPINE
 	  Soc family.
 
 config ARCH_BAIKAL
-	bool "Baikal Electronics Baikal-M SOC Family"
+	bool "Baikal Electronics Baikal-M SoC Family"
 	select GPIOLIB
 	select PINCTRL
 	select OF_GPIO
@@ -40,7 +40,7 @@ config ARCH_BAIKAL
 	select DW_APB_TIMER
 	select DW_APB_TIMER_OF
 	help
-	  This enables support for Baikal Electronics Baikal-M SOC Family
+	  This enables support for Baikal Electronics Baikal-M SoC Family
 
 config ARCH_BCM2835
 	bool "Broadcom BCM2835 family"

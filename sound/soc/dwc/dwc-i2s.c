@@ -665,7 +665,7 @@ static int dw_i2s_probe(struct platform_device *pdev)
 	}
 
 	for (idx = 0; idx < (unsigned)irq_count; idx++) {
-		irq = platform_get_irq(pdev, idx);
+		irq = platform_get_irq_optional(pdev, idx);
 		if (irq >= 0) {
 			ret = devm_request_irq(&pdev->dev, irq, i2s_irq_handler, 0,
 					       pdev->name, dev);

@@ -15,6 +15,7 @@
 #include <asm/io.h>
 #include "dwmac1000.h"
 #include "dwmac_dma.h"
+#include "dwmac1000_dma.h"
 
 void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 {
@@ -72,7 +73,7 @@ void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 EXPORT_SYMBOL_GPL(dwmac1000_dma_axi);
 
 void dwmac1000_dma_init(void __iomem *ioaddr,
-		        struct stmmac_dma_cfg *dma_cfg, int atds)
+			struct stmmac_dma_cfg *dma_cfg, int atds)
 {
 	u32 value = readl(ioaddr + DMA_BUS_MODE);
 	int txpbl = dma_cfg->txpbl ?: dma_cfg->pbl;
@@ -226,7 +227,7 @@ void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
 EXPORT_SYMBOL_GPL(dwmac1000_dump_dma_regs);
 
 int dwmac1000_get_hw_feature(void __iomem *ioaddr,
-				    struct dma_features *dma_cap)
+			     struct dma_features *dma_cap)
 {
 	u32 hw_cap = readl(ioaddr + DMA_HW_FEATURE);
 

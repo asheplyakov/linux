@@ -29,6 +29,9 @@
 struct baikal_vdu_private {
 	struct drm_device *drm;
 
+	unsigned int irq;
+	bool irq_enabled;
+
 	struct drm_connector connector;
 	struct drm_crtc crtc;
 	struct drm_encoder encoder;
