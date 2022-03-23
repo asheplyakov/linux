@@ -404,11 +404,6 @@ eu-strip --remove-comment -o %image_path vmlinux
 
 echo "Kernel built $KernelVer"
 
-%if_enabled docs
-# psdocs, pdfdocs don't work yet
-%make_build SPHINXOPTS="-j $([ %__nprocs -ge 8 ] && echo 8 || echo %__nprocs)" htmldocs
-%endif
-
 %install
 export ARCH=%base_arch
 KernelVer=%kversion-%flavour-%krelease
