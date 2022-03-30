@@ -2,7 +2,7 @@ Name: kernel-image-@kflavour@
 Release: alt1
 epoch:2
 %define kernel_base_version	5.10
-%define kernel_sublevel .102
+%define kernel_sublevel .109
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 # Numeric extra version scheme developed by Alexander Bokovoy:
@@ -274,6 +274,7 @@ technical reasons.
 %package -n kernel-headers-%flavour
 Summary: Header files for the Linux kernel
 Group: Development/Kernel
+AutoReqProv: nocpp
 Requires: kernel-headers-common >= 1.1.5
 Provides: kernel-headers = %version
 #Provides: kernel-headers-%base_flavour = %version-%release
@@ -296,6 +297,7 @@ If possible, try to use glibc-kernheaders instead of this package.
 %package -n kernel-headers-modules-%flavour
 Summary: Headers and other files needed for building kernel modules
 Group: Development/Kernel 
+AutoReqProv: nocpp
 Requires: gcc%kgcc_version
 Requires: libelf-devel
 
@@ -555,7 +557,7 @@ cp -a Documentation/* %buildroot%_docdir/kernel-doc-%base_flavour-%version/
 
 %check
 # First boot-test no matter have KVM or not.
-timeout 300 vm-run uname -a
+timeout 300 vm-run --no-quiet uname -a
 # Longer LTP tests only if there is KVM (which is present on all main arches).
 if ! timeout 999 vm-run --kvm=cond \
         "/sbin/sysctl kernel.printk=8;
@@ -655,6 +657,16 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Wed Mar 30 2022 Vitaly Chikunov <vt@altlinux.org> 2:5.10.109-alt1
+- Update to v5.10.109 (2022-03-28).
+- Use selected LTP tests in %%check.
+- Do not build (redundant) htmldocs for kernel-doc package.
+- Enable Jetson Nano & rk3399 support.
+- Enable v3d on Raspberry Pi 4.
+- config: enable Atheros ath11k PCI support.
+- Revert "Input: clear BTN_RIGHT/MIDDLE on buttonpads" (ALT#42123).
+- config: enable MediaTek Bluetooth USB controllers support.
+
 * Fri Feb 25 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.102-alt1
 - v5.10.102
 
