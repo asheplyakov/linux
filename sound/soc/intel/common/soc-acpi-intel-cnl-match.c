@@ -24,6 +24,13 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_cnl_machines[] = {
 		.sof_fw_filename = "sof-cnl.ri",
 		.sof_tplg_filename = "sof-cnl-rt274.tplg",
 	},
+	{
+		.id = "ESSX8336",
+		.drv_name = "sof-essx8336",
+		.sof_fw_filename = "sof-cnl.ri",
+		/* cnl and cml are identical */
+		.sof_tplg_filename = "sof-cml-es8336-ssp0.tplg",
+	},
 	{},
 };
 EXPORT_SYMBOL_GPL(snd_soc_acpi_intel_cnl_machines);
