@@ -34,6 +34,8 @@ static int quirk_override = -1;
 module_param_named(quirk, quirk_override, int, 0444);
 MODULE_PARM_DESC(quirk, "Board-specific quirk override");
 
+static int quirk_pa_enable = -1;
+
 /* jd-inv + terminating entry */
 #define SOF_ES8336_PROPS_MAX	2
 
@@ -231,10 +233,25 @@ static int sof_es8336_quirk_cb(const struct dmi_system_id *id)
 	if (quirk & SOF_ES8336_TGL_GPIO_QUIRK)
 		gpio_mapping = quirk_acpi_es8336_gpios;
 
+	if (strcmp(id->ident, "pa-enable ACPI deviant") == 0) {
+		if (quirk_pa_enable < 0) quirk_pa_enable = 1;
+		else quirk_pa_enable++;
+	}
+
 	return 1;
 }
 
 static const struct dmi_system_id sof_es8336_quirk_table[] = {
+	{
+		.callback = sof_es8336_quirk_cb,
+		.ident = "pa-enable ACPI deviant",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "3Logic Group"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Graviton N15i-K2"),
+		},
+		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
+					SOF_ES8336_TGL_GPIO_QUIRK)
+	},
 	{
 		.callback = sof_es8336_quirk_cb,
 		.matches = {
@@ -242,6 +259,16 @@ static const struct dmi_system_id sof_es8336_quirk_table[] = {
 			DMI_MATCH(DMI_BOARD_NAME, "Hi10 X"),
 		},
 		.driver_data = (void *)SOF_ES8336_SSP_CODEC(2)
+	},
+	{
+		.callback = sof_es8336_quirk_cb,
+		.ident = "pa-enable ACPI deviant",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "DEPO Computers"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "DPC156"),
+		},
+		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
+					SOF_ES8336_TGL_GPIO_QUIRK)
 	},
 	{
 		.callback = sof_es8336_quirk_cb,
@@ -456,6 +483,18 @@ devm_err:
  /* i2c-<HID>:00 with HID being 8 chars */
 static char codec_name[SND_ACPI_I2C_ID_LEN];
 
+/*
+* Using the ACPI device name is not very nice, but hopefully makes sense for now
+*/
+
+static struct gpiod_lookup_table cml_lp_based_gpios_table = {
+	/* .dev_id is set during probe */
+	.table = {
+		GPIO_LOOKUP("INT34BB:00", 264, "PA_ENABLE", GPIO_ACTIVE_LOW), //cnl kb
+		 { },
+	},
+};
+
 static int sof_es8336_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -507,6 +546,9 @@ static int sof_es8336_probe(struct platform_device *pdev)
 			 "i2c-%s", acpi_dev_name(adev));
 		put_device(&adev->dev);
 		dai_links[0].codecs->name = codec_name;
+	} else {
+		dev_err(dev, "Error cannot find '%s' dev\n", mach->id);
+		return -ENXIO;
 	}
 
 	ret = snd_soc_fixup_dai_links_platform_name(&sof_es8336_card,
@@ -537,16 +579,29 @@ static int sof_es8336_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = devm_acpi_dev_add_driver_gpios(codec_dev, gpio_mapping);
-	if (ret)
-		dev_warn(codec_dev, "unable to add GPIO mapping table\n");
+	if (quirk_pa_enable < 0) {
+		ret = devm_acpi_dev_add_driver_gpios(codec_dev, gpio_mapping);
+		if (ret)
+			dev_warn(codec_dev, "unable to add GPIO mapping table\n");
 
-	priv->gpio_pa = gpiod_get(codec_dev, "pa-enable", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->gpio_pa)) {
-		ret = PTR_ERR(priv->gpio_pa);
-		dev_err(codec_dev, "%s, could not get pa-enable: %d\n",
-			__func__, ret);
-		goto err;
+		priv->gpio_pa = gpiod_get_optional(codec_dev, "pa-enable", GPIOD_OUT_LOW);
+		if (IS_ERR(priv->gpio_pa)) {
+			ret = dev_err_probe(dev, PTR_ERR(priv->gpio_pa),
+						"could not get pa-enable GPIO\n");
+			goto err;
+		}
+	}
+	else {
+		cml_lp_based_gpios_table.dev_id = dev_name(codec_dev);
+		gpiod_add_lookup_table(&cml_lp_based_gpios_table);
+
+		priv->gpio_pa = devm_gpiod_get(codec_dev, "PA_ENABLE", GPIOD_OUT_LOW);
+		if (IS_ERR(priv->gpio_pa)) {
+			ret = PTR_ERR(priv->gpio_pa);
+			dev_err(codec_dev, "%s, could not get PA_ENABLE: %d\n",
+				__func__, ret);
+			goto err;
+		}
 	}
 
 	priv->codec_dev = codec_dev;
