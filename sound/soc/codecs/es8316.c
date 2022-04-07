@@ -728,6 +728,8 @@ static int es8316_probe(struct snd_soc_component *component)
 		return ret;
 	}
 
+	snd_soc_component_init_regmap(component, es8316->regmap);
+
 	/* Reset codec and enable current state machine */
 	snd_soc_component_write(component, ES8316_RESET, 0x3f);
 	usleep_range(5000, 5500);
@@ -754,8 +756,42 @@ static void es8316_remove(struct snd_soc_component *component)
 {
 	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
 
+	snd_soc_component_exit_regmap(component);
+
 	clk_disable_unprepare(es8316->mclk);
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int es8316_suspend(struct device *dev)
+{
+	struct es8316_priv *es8316 = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s: Enter\n", __func__);
+
+	regcache_cache_only(es8316->regmap, true);
+	regcache_mark_dirty(es8316->regmap);
+
+	return 0;
+}
+
+static int es8316_resume(struct device *dev)
+{
+	struct es8316_priv *es8316 = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s: Enter\n", __func__);
+
+	regcache_cache_only(es8316->regmap, false);
+	regcache_sync(es8316->regmap);
+
+	es8316_irq(es8316->irq, es8316);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops es8316_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(es8316_suspend, es8316_resume)
+};
 
 static const struct snd_soc_component_driver soc_component_dev_es8316 = {
 	.probe			= es8316_probe,
@@ -787,6 +823,8 @@ static const struct regmap_config es8316_regmap = {
 	.max_register = 0x53,
 	.volatile_table	= &es8316_volatile_table,
 	.cache_type = REGCACHE_RBTREE,
+	.use_single_read = true,
+	.use_single_write = true,
 };
 
 static int es8316_i2c_probe(struct i2c_client *i2c_client,
@@ -851,6 +889,7 @@ static struct i2c_driver es8316_i2c_driver = {
 		.name			= "es8316",
 		.acpi_match_table	= ACPI_PTR(es8316_acpi_match),
 		.of_match_table		= of_match_ptr(es8316_of_match),
+		.pm			= &es8316_pm,
 	},
 	.probe		= es8316_i2c_probe,
 	.id_table	= es8316_i2c_id,
