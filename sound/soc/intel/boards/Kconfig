@@ -517,6 +517,7 @@ config SND_SOC_INTEL_SOF_ES8336_MACH
 	depends on MFD_INTEL_LPSS || COMPILE_TEST
 	depends on SND_HDA_CODEC_HDMI && SND_SOC_SOF_HDA_AUDIO_CODEC
 	select SND_SOC_ES8316
+	select SND_SOC_ES8326
 	select SND_SOC_DMIC
 	help
 	   This adds support for ASoC machine driver for SOF platforms

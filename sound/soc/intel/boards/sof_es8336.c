@@ -514,6 +514,12 @@ static int sof_es8336_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	card->components = devm_kasprintf(dev, GFP_KERNEL, "spk:es83%d6",
+					  strstr(codec_name, "ESSX8326")
+					  ? 2 : 1);
+	if (!card->components)
+		return -ENOMEM;
+
 	/* get speaker enable GPIO */
 	codec_dev = bus_find_device_by_name(&i2c_bus_type, NULL, codec_name);
 	if (!codec_dev)

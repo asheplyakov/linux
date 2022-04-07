@@ -314,6 +314,11 @@ static const struct config_entry config_table[] = {
 	{
 		.flags = FLAG_SOF,
 		.device = 0x4dc8,
+		.codec_hid = "ESSX8326",
+	},
+	{
+		.flags = FLAG_SOF,
+		.device = 0x4dc8,
 		.codec_hid = "ESSX8336",
 	},
 #endif
@@ -332,6 +337,11 @@ static const struct config_entry config_table[] = {
 			},
 			{}
 		}
+	},
+	{
+		.flags = FLAG_SOF,
+		.device = 0xa0c8,
+		.codec_hid = "ESSX8326",
 	},
 	{
 		.flags = FLAG_SOF,

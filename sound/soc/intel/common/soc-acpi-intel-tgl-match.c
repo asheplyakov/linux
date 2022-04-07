@@ -384,6 +384,12 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_tgl_machines[] = {
 		.sof_tplg_filename = "sof-tgl-rt1011-rt5682.tplg",
 	},
 	{
+		.id = "ESSX8326",
+		.drv_name = "sof-essx8336",
+		.sof_fw_filename = "sof-tgl.ri",
+		.sof_tplg_filename = "sof-tgl-es8326.tplg",
+	},
+	{
 		.id = "ESSX8336",
 		.drv_name = "sof-essx8336",
 		.sof_fw_filename = "sof-tgl.ri",
