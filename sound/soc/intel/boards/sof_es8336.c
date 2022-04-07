@@ -26,12 +26,16 @@
 
 #define SOF_ES8336_TGL_GPIO_QUIRK		BIT(4)
 #define SOF_ES8336_ENABLE_DMIC			BIT(5)
+#define SOF_ES8336_JD_INVERTED			BIT(6)
 
 static unsigned long quirk;
 
 static int quirk_override = -1;
 module_param_named(quirk, quirk_override, int, 0444);
 MODULE_PARM_DESC(quirk, "Board-specific quirk override");
+
+/* jd-inv + terminating entry */
+#define SOF_ES8336_PROPS_MAX	2
 
 struct sof_es8336_private {
 	struct device *codec_dev;
@@ -64,6 +68,8 @@ static const struct acpi_gpio_mapping *gpio_mapping = acpi_es8336_gpios;
 static void log_quirks(struct device *dev)
 {
 	dev_info(dev, "quirk SSP%ld",  SOF_ES8336_SSP_CODEC(quirk));
+	dev_info(dev, "quirk JD_INVERTED %s\n",
+		 (quirk & SOF_ES8336_JD_INVERTED) ? "enabled" : "disabled");
 }
 
 static int sof_es8316_speaker_power_event(struct snd_soc_dapm_widget *w,
@@ -459,6 +465,8 @@ static int sof_es8336_probe(struct platform_device *pdev)
 	struct acpi_device *adev;
 	struct snd_soc_dai_link *dai_links;
 	struct device *codec_dev;
+	struct property_entry props[SOF_ES8336_PROPS_MAX] = {};
+	unsigned int cnt = 0;
 	int dmic_be_num = 0;
 	int hdmi_num = 3;
 	int ret;
@@ -510,6 +518,18 @@ static int sof_es8336_probe(struct platform_device *pdev)
 	codec_dev = bus_find_device_by_name(&i2c_bus_type, NULL, codec_name);
 	if (!codec_dev)
 		return -EPROBE_DEFER;
+
+	if (quirk & SOF_ES8336_JD_INVERTED)
+		props[cnt++] = PROPERTY_ENTRY_BOOL("everest,jack-detect-inverted");
+
+	if (cnt) {
+		ret = device_add_properties(codec_dev, props);
+		if (ret) {
+			dev_err(codec_dev, "%s, could not add properties: %d\n",
+				__func__, ret);
+			goto err;
+		}
+	}
 
 	ret = devm_acpi_dev_add_driver_gpios(codec_dev, gpio_mapping);
 	if (ret)
