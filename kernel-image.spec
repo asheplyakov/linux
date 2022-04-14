@@ -2,7 +2,7 @@ Name: kernel-image-@kflavour@
 Release: alt1
 epoch:2
 %define kernel_base_version	5.10
-%define kernel_sublevel .110
+%define kernel_sublevel .111
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 # Numeric extra version scheme developed by Alexander Bokovoy:
@@ -657,6 +657,11 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Thu Apr 14 2022 Vitaly Chikunov <vt@altlinux.org> 2:5.10.111-alt1
+- Updated to v5.10.111 (2022-04-13).
+- Baikal-M: new supported boards: et101, AQBM1000 (asheplyakov).
+- Baikal-M: sync patches with baikalm-5.10.y-next (asheplyakov).
+
 * Fri Apr 08 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.110-alt1
 - v5.10.110 (Fixes: CVE-2021-4034)
 
