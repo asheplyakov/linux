@@ -1,0 +1,22 @@
+object d8dadb4aec40dff3c5b1237bfe77b9dc2ed8d144
+type commit
+tag 5.16-fix-core-kmod
+tagger Kernel Bot <kernelbot@altlinux.org> 1641897248 +0300
+
+5.16-fix-core-kmod
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJh3V0gAAoJELABVfCGCzieE+MP/3JTCLBN2REmNdAG07q3hpG6
+WfXeI5VE26VDhe4Uf4oQSrDjNYe9fNYvbDevLFOEwVdigo5oSKD2tmXGGQ3S8yfP
+BsqzGT1uWzWGUtRmUeYTn2pVpqjbF0xHKWoa14QGc5FNrzGBJA2CTOcim5dlQ5e8
+OW/nofhxAh6vm6tpmrcH5kDFHVmyll7d0mbnzV7s1x3xD4Yn30EnTTi+/NZIaQDU
+s9uFrnxEq6nAlskfM8n85LoKJRNdEuk+Vz4UJXsD6fRA+cADGnpg7C1/3ojtbi2B
+kgzbRoz7Ww77YTWdjdwQ/newXxBtWmDbnnRIVMGnuRCp9ISb/SY30e/efLOJkbug
+Z/lZfZT0I9lMXUgVRlrAFoaWx45UxOwbRGTHNWDDjuYuUMuYsN6xyBF1G1Ll/bnf
+rLpjKyRO5m1OgpiXP+GOLNQ9K7QMp3O9R/cYfT3ms5lplBWKStGAdMXhAFTSY9qh
+WOYHNtUMqB/jxH1RvnNmEhXEGbfVrZ2qQcOINAAODxGqNHKVwD/dze4IAYLue52R
+u6qEk84g5MXhUVWFJsGgdsvjBdnuDm+as09NOlpec5gFIYKXqFlIHd1l3DMejKfY
+AtdMbErafQwyjSXZRsc+bMhx0pNwZg3SvGuO5wj/r93SEOEOSdy8XOyn8ozg+wCw
+dfeJYKWiiNa9j4TtjZMW
+=xYWn
+-----END PGP SIGNATURE-----

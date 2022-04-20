@@ -1,0 +1,22 @@
+object c104cc396c454d0c7c75a0d9a4d59e015f7511c0
+type commit
+tag 5.16-feat-add-acs-overrides
+tagger Kernel Bot <kernelbot@altlinux.org> 1641906195 +0300
+
+5.16-feat-add-acs-overrides
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJh3YATAAoJELABVfCGCzie3mwP/jXzMw0Z9lzWl+mYN9ciDtGx
+LmpXZDElYtdtrm0rfnEDg7VxHetPV4HKA3GlXBU3uUFyOcBGyI3OE8cSyDkeZP/a
+TRwZxt2z2I3AIE/41M/A9tSqSW1jz2pTIFKoPkS4tsoCT4dq3lWhSEX3EHk06aLZ
+2NyN+bDO/dUgh3G3xK6Uxv1kEYAIxcuw0YB+cp4nrzuTsDeMN+s3VvCZm1vsTOyj
+thKMndQy4ODY+kVrY8JUIQjbpw+jeSHHHgRbqTPLZe1KlT6b0LqWHhfkmXE4fRYn
+wPb+zcCCmccQ+PG7TvaN06/zSPdfbKhNHSVDadTLUoxVqQIhPPR4gtqt0POUh2Ln
+fHBkRhuUOgS8v9yQlLrfo/eXTAbjqu2iZLf5+xX+0Dn1zDqhzrf8CXn8abuSDQDY
+BiEz2PxX9Nyk4K/k9hi2mZZgJOBWnKGKcF9ywZQBtI2xJiYtENrmRxbNKdOetjf6
+j/qvVIA+mrhapiF/6EgDdASuieWc2BYAap4qcp9InXw+q4dLOM90Ik/Tr3sK3AF8
+W4igVVq33pCvS2llrQ52Opz9JZW2gYhFxGL/Fk6oK8HqeoTG6zQg2yl2HypYO+qH
+SnPbI9C8SgV8Niyhd4l9YVrTtiY18r7jk4vlZkUanRzw4d3d6Bzc7lDtIhFM+79f
+cNfS1wEkQ+slqhrswUGt
+=gZ2z
+-----END PGP SIGNATURE-----
