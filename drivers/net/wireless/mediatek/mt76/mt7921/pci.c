@@ -304,6 +304,7 @@ static void mt7921_pci_remove(struct pci_dev *pdev)
 
 	mt7921_unregister_device(dev);
 	devm_free_irq(&pdev->dev, pdev->irq, dev);
+	mt76_free_device(&dev->mt76);
 	pci_free_irq_vectors(pdev);
 }
 
