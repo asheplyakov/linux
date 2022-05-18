@@ -2,7 +2,7 @@ Name: kernel-image-@kflavour@
 Release: alt1
 epoch:2
 %define kernel_base_version	5.10
-%define kernel_sublevel .113
+%define kernel_sublevel .117
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 # Numeric extra version scheme developed by Alexander Bokovoy:
@@ -657,6 +657,9 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Wed May 18 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.117-alt1
+- v5.10.117 (2022-05-18).
+
 * Wed Apr 27 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.113-alt1
 - v5.10.113
 
