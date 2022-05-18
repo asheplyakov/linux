@@ -1,5 +1,5 @@
 Name: kernel-image-@kflavour@
-Release: alt1
+Release: alt2
 epoch:1
 %define kernel_base_version	5.17
 %define kernel_sublevel .9
@@ -615,6 +615,10 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Wed May 18 2022 Alexey Sheplyakov <asheplyakov@altlinux.org> 1:5.17.9-alt2
+- Applied Baikal-M patches. Supported boards: et101, aqbm1000, tf307.
+  Supported firmware: based on SDK-M 5.3
+
 * Wed May 18 2022 Kernel Bot <kernelbot@altlinux.org> 1:5.17.9-alt1
 - v5.17.9 (2022-05-18).
 
