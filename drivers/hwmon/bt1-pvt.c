@@ -1217,6 +1217,8 @@ static int pvt_probe(struct platform_device *pdev)
 
 static const struct of_device_id pvt_of_match[] = {
 	{ .compatible = "baikal,bt1-pvt" },
+	{ .compatible = "baikal,pvt" },
+	{ .compatible = "baikal,bm1000-pvt"},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pvt_of_match);
