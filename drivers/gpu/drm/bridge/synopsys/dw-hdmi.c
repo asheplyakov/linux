@@ -3441,6 +3441,11 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 		audio.irq = irq;
 		audio.hdmi = hdmi;
 		audio.get_eld = hdmi_audio_get_eld;
+		if (of_property_read_u32(np, "ahb-audio-regshift", &audio.regshift) != 0) {
+			audio.regshift = 0;
+		} else {
+			dev_dbg(dev, "set audio.regshift=%u from DTB\n", audio.regshift);
+		}
 		hdmi->enable_audio = dw_hdmi_ahb_audio_enable;
 		hdmi->disable_audio = dw_hdmi_ahb_audio_disable;
 
