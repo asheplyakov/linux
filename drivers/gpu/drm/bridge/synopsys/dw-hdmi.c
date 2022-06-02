@@ -3577,6 +3577,11 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 		} else {
 			dev_dbg(dev, "set audio.regshift=%u from DTB\n", audio.regshift);
 		}
+		if (of_device_is_compatible(np, "baikal,hdmi")) {
+			audio.regshift = 2;
+			dev_info(dev, "setting audio.regshift=%d for BE-M1000 SoC\n",
+				 audio.regshift);
+		}
 		hdmi->enable_audio = dw_hdmi_ahb_audio_enable;
 		hdmi->disable_audio = dw_hdmi_ahb_audio_disable;
 
