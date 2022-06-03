@@ -11,6 +11,7 @@
 
 #include <linux/lsm_hooks.h>
 #include <linux/cred.h>
+#include <linux/capability.h>
 #include <linux/sysctl.h>
 #include <linux/binfmts.h>
 #include <linux/file.h>
@@ -241,6 +242,7 @@ int is_olock_dir(struct inode *inode)
 static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * fi)
 {
 	struct altha_list_struct *node;
+	char *setuidcap_str = "setuid";
 	/* when it's not a shebang issued script interpreter */
 	if (rstrscript_enabled && bprm->executable == bprm->interpreter) {
 		char *path_p;
@@ -267,11 +269,37 @@ static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * f
 		up_read(&interpreters_sem);
 		kfree(path_buffer);
 	}
-	if (unlikely(nosuid_enabled &&
-		     !uid_eq(bprm->cred->uid, bprm->cred->euid))) {
+	if (nosuid_enabled) {
 		char *path_p;
 		char *path_buffer;
-		uid_t cur_uid;
+		int is_setuid = 0, is_setcap = 0;
+		uid_t cur_uid, cur_euid;
+
+		/*
+		 * While nosuid is supposed to prevent switching to superuser,
+		 * it does not check swtiching to a non-privileged user because
+		 * it is almost never used.
+		 */
+		is_setuid = !uid_eq(bprm->cred->uid, bprm->cred->euid);
+
+		if (!is_setuid) {
+			cur_euid = from_kuid(bprm->cred->user_ns, bprm->cred->euid);
+			/*
+			 * Check capabilities only for effectivly non-superuser
+			 * processes: superuser processess always have
+			 * capabilities, should keep them so these processes
+			 * continue working correctly.
+			 */
+			if (cur_euid != (uid_t) 0)
+				is_setcap = !(cap_isclear(bprm->cred->cap_permitted)
+						&& cap_isclear(bprm->cred->cap_effective));
+
+			setuidcap_str = "setcap";
+		}
+
+		/* If no suid and no caps detected, exit. */
+		if (!is_setuid && !is_setcap)
+			return 0;
 
 		path_buffer = kmalloc(PATH_MAX, GFP_KERNEL);
 		if (!path_buffer)
@@ -283,8 +311,8 @@ static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * f
 		list_for_each_entry(node, &nosuid_exceptions_list, list) {
 			if (strcmp(path_p, node->spath) == 0) {
 				pr_notice_ratelimited
-				    ("AltHa/NoSUID: %s permitted to setuid from %d\n",
-				     bprm->filename, cur_uid);
+				    ("AltHa/NoSUID: %s permitted to %s from %d\n",
+				     bprm->filename, setuidcap_str, cur_uid);
 				up_read(&nosuid_exceptions_sem);
 				kfree(path_buffer);
 				return 0;
@@ -292,9 +320,12 @@ static int altha_bprm_creds_from_file(struct linux_binprm *bprm, struct file * f
 		}
 		up_read(&nosuid_exceptions_sem);
 		pr_notice_ratelimited
-		    ("AltHa/NoSUID: %s prevented to setuid from %d\n",
-		     bprm->filename, cur_uid);
-		bprm->cred->euid = bprm->cred->uid;
+		    ("AltHa/NoSUID: %s prevented to %s from %d\n",
+		     bprm->filename, setuidcap_str, cur_uid);
+		if (is_setuid)
+			bprm->cred->euid = bprm->cred->uid;
+		cap_clear(bprm->cred->cap_permitted);
+		cap_clear(bprm->cred->cap_effective);
 		kfree(path_buffer);
 	}
 	return 0;
