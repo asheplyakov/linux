@@ -3,7 +3,7 @@ AltHa
 ====
 
 AltHa is a Linux Security Module currently has three userspace hardening options:
-    * ignore SUID on binaries (with exceptions possible);
+    * ignore SUID and setcaps on binaries (with exceptions possible);
     * prevent running selected script interpreters in interactive mode;
     * disable open file unlinking in selected dirs.
     * enable kiosk mode
@@ -15,12 +15,12 @@ through sysctls in ``/proc/sys/kernel/altha``.
 
 NoSUID
 ============
-Modern Linux systems can be used with minimal (or even zero at least for OWL and ALT) usage of SUID programms, but in many cases in full-featured desktop or server systems there are plenty of them: uncounted and sometimes unnecessary. Privileged programms are always an attack surface, but mounting filesystems with ``nosuid`` flag doesn't provide enough granularity in SUID binaries management. This LSM module provides a single control point for all SUID binaries. When this submodule is enabled, SUID bits on all binaries except explicitly listed are system-wide ignored.
+Modern Linux systems can be used with minimal (or even zero at least for OWL and ALT) usage of SUID programms, but in many cases in full-featured desktop or server systems there are plenty of them: uncounted and sometimes unnecessary. Privileged programms are always an attack surface, but mounting filesystems with ``nosuid`` flag doesn't provide enough granularity in SUID binaries management. This LSM module provides a single control point for all SUID and setcap binaries. When this submodule is enabled, SUID and setcap bits on all binaries except explicitly listed are system-wide ignored.
 
 Sysctl parameters and defaults:
 
 * ``kernel.altha.nosuid.enabled = 0``, set to 1 to enable
-* ``kernel.altha.nosuid.exceptions =``, colon-separated list of enabled SUID binaries, for example: ``/bin/su:/usr/libexec/hasher-priv/hasher-priv``
+* ``kernel.altha.nosuid.exceptions =``, colon-separated list of enabled SUID and setcap binaries, for example: ``/bin/su:/usr/libexec/hasher-priv/hasher-priv``
 
 RestrScript
 ============
