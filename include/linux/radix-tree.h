@@ -17,6 +17,7 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/xarray.h>
+#include <linux/local_lock.h>
 
 /* Keep unconverted code working */
 #define radix_tree_root		xarray
