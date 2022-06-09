@@ -662,6 +662,7 @@ check-pesign-helper
 
 * Mon Jun 06 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.120-alt1
 - v5.10.120 (2022-06-06).
+- kernel.perf_event_paranoid=4 by default.
 
 * Mon May 30 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.119-alt1
 - v5.10.119 (2022-05-30).
