@@ -657,18 +657,15 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
-* Thu Jun 09 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.121-alt1
+* Fri Jun 10 2022 Vitaly Chikunov <vt@altlinux.org> 2:5.10.121-alt1
 - v5.10.121 (2022-06-09).
-
-* Mon Jun 06 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.120-alt1
-- v5.10.120 (2022-06-06).
+- altha: Restrict setcap binaries in nosuid mode.
+- v5.10.120 (2022-06-06). (Fixes: CVE-2022-1852, CVE-2022-1972, CVE-2022-1966).
 - kernel.perf_event_paranoid=4 by default.
-
-* Mon May 30 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.119-alt1
-- v5.10.119 (2022-05-30).
+- v5.10.119 (2022-05-30). (Fixes: CVE-2022-1789, CVE-2022-1012).
 
 * Wed May 25 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.118-alt1
-- v5.10.118 (2022-05-25).
+- v5.10.118 (2022-05-25). (Fixes: CVE-2022-1729, CVE-2022-0854).
 
 * Wed May 18 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.117-alt1
 - v5.10.117 (2022-05-18).
