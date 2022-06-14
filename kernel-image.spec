@@ -2,7 +2,7 @@ Name: kernel-image-@kflavour@
 Release: alt1
 epoch:2
 %define kernel_base_version	5.10
-%define kernel_sublevel .121
+%define kernel_sublevel .122
 %define kernel_extra_version	%nil
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
 # Numeric extra version scheme developed by Alexander Bokovoy:
@@ -657,6 +657,9 @@ check-pesign-helper
 %files checkinstall
 
 %changelog
+* Wed Jun 15 2022 Kernel Bot <kernelbot@altlinux.org> 2:5.10.122-alt1
+- v5.10.122 (2022-06-14).
+
 * Fri Jun 10 2022 Vitaly Chikunov <vt@altlinux.org> 2:5.10.121-alt1
 - v5.10.121 (2022-06-09).
 - altha: Restrict setcap binaries in nosuid mode.
