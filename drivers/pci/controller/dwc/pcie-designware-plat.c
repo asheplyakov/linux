@@ -112,6 +112,11 @@ static int dw_plat_pcie_probe(struct platform_device *pdev)
 	const struct dw_plat_pcie_of_data *data;
 	enum dw_pcie_device_mode mode;
 
+	if (of_device_is_compatible(dev->of_node, "baikal,bm1000-pcie")) {
+		dev_err(dev, "refusing to load on Baikal-M with SDK-M 5.{4,5}\n");
+		return -ENODEV;
+	}
+
 	data = of_device_get_match_data(dev);
 	if (!data)
 		return -EINVAL;
