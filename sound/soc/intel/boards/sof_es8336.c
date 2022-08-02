@@ -247,6 +247,16 @@ static const struct dmi_system_id sof_es8336_quirk_table[] = {
 		.ident = "pa-enable ACPI deviant",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "3Logic Group"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Graviton N15i"),
+		},
+		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
+					SOF_ES8336_TGL_GPIO_QUIRK)
+	},
+	{
+		.callback = sof_es8336_quirk_cb,
+		.ident = "pa-enable ACPI deviant",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "3Logic Group"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "Graviton N15i-K2"),
 		},
 		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
