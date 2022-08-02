@@ -255,6 +255,16 @@ static const struct dmi_system_id sof_es8336_quirk_table[] = {
 	{
 		.callback = sof_es8336_quirk_cb,
 		.matches = {
+			/* market name: Aquarius Cmp NS685U R11 */
+			DMI_MATCH(DMI_SYS_VENDOR, "Aquarius"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "NS685U R11"),
+		},
+		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
+					SOF_ES8336_JD_INVERTED)
+	},
+	{
+		.callback = sof_es8336_quirk_cb,
+		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "CHUWI Innovation And Technology"),
 			DMI_MATCH(DMI_BOARD_NAME, "Hi10 X"),
 		},
