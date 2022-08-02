@@ -233,10 +233,8 @@ static int sof_es8336_quirk_cb(const struct dmi_system_id *id)
 	if (quirk & SOF_ES8336_TGL_GPIO_QUIRK)
 		gpio_mapping = quirk_acpi_es8336_gpios;
 
-	if (id->ident != NULL && strcmp(id->ident, "pa-enable ACPI deviant") == 0) {
-		if (quirk_pa_enable < 0) quirk_pa_enable = 1;
-		else quirk_pa_enable++;
-	}
+	if (id->ident != NULL && strcmp(id->ident, "pa-enable ACPI deviant") == 0)
+		quirk_pa_enable = 1;
 
 	return 1;
 }
