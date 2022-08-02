@@ -272,6 +272,16 @@ static const struct dmi_system_id sof_es8336_quirk_table[] = {
 	},
 	{
 		.callback = sof_es8336_quirk_cb,
+		.ident = "pa-enable ACPI deviant",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ICL"),
+			DMI_MATCH(DMI_BOARD_NAME, "Si16"),
+		},
+		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
+					SOF_ES8336_TGL_GPIO_QUIRK)
+	},
+	{
+		.callback = sof_es8336_quirk_cb,
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "IP3 tech"),
 			DMI_MATCH(DMI_BOARD_NAME, "WN1"),
@@ -279,6 +289,17 @@ static const struct dmi_system_id sof_es8336_quirk_table[] = {
 		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
 					SOF_ES8336_TGL_GPIO_QUIRK |
 					SOF_ES8336_ENABLE_DMIC)
+	},
+	{
+		.callback = sof_es8336_quirk_cb,
+		.ident = "pa-enable ACPI deviant",
+		.matches = {
+			/* market name: HIPER TeachBook HTHLP-04R */
+			DMI_MATCH(DMI_SYS_VENDOR, "mtech"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "MTL1578"),
+		},
+		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
+					SOF_ES8336_TGL_GPIO_QUIRK)
 	},
 	{}
 };
