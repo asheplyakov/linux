@@ -320,6 +320,16 @@ static const struct dmi_system_id sof_es8336_quirk_table[] = {
 	},
 	{
 		.callback = sof_es8336_quirk_cb,
+		.matches = {
+			/* market name: Kraftway ACCORD S15T */
+			DMI_MATCH(DMI_SYS_VENDOR, "Kraftway"),
+			DMI_MATCH(DMI_BOARD_NAME, "S15T"),
+		},
+		.driver_data = (void *)(SOF_ES8336_SSP_CODEC(0) |
+					SOF_ES8336_JD_INVERTED)
+	},
+	{
+		.callback = sof_es8336_quirk_cb,
 		.ident = "pa-enable ACPI deviant",
 		.matches = {
 			/* market name: HIPER TeachBook HTHLP-04R */
