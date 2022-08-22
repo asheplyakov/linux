@@ -1,0 +1,3 @@
+diff: v5.15:. .
+copy: .gear/rules
+specsubst: kflavour
