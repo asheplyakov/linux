@@ -9,6 +9,7 @@
  */
 #include <linux/bitops.h>
 #include <linux/of.h>
+#include <dt-bindings/net/realtek-phy-rtl8211f.h>
 #include <linux/phy.h>
 #include <linux/module.h>
 #include <linux/delay.h>
@@ -30,6 +31,7 @@
 #define RTL8211F_PHYCR1				0x18
 #define RTL8211F_PHYCR2				0x19
 #define RTL8211F_INSR				0x1d
+#define RTL8211F_LCR				0x10
 
 #define RTL8211F_TX_DELAY			BIT(8)
 #define RTL8211F_RX_DELAY			BIT(3)
@@ -328,6 +330,56 @@ static int rtl8211_config_aneg(struct phy_device *phydev)
 	return 0;
 }
 
+static void rtl8211f_config_led(struct phy_device *phydev)
+{
+	struct device *dev = &phydev->mdio.dev;
+	struct device_node *of_node = dev->of_node;
+	u16 val;
+	u32 led_mode, led0_ctrl, led1_ctrl, led2_ctrl;
+	int ret;
+
+	ret = of_property_read_u32(of_node, "realtek,led-mode", &led_mode);
+	if (ret < 0) {
+		dev_dbg(dev, "refusing to reconfigure leds: no 'realtek,led-mode' in dtb\n");
+		return;
+	}
+	ret = of_property_read_u32(of_node, "realtek,led0-control", &led0_ctrl);
+	if (ret < 0) {
+		dev_dbg(dev, "refusing to reconfigure leds: no 'realtek,led0-control' in dtb\n");
+		return;
+	}
+	ret = of_property_read_u32(of_node, "realtek,led1-control", &led1_ctrl);
+	if (ret < 0) {
+		dev_dbg(dev, "refusing to reconfigure leds: no 'realtek,led1-control' in dtb\n");
+		return;
+	}
+	ret = of_property_read_u32(of_node, "realtek,led2-control", &led2_ctrl);
+	if (ret < 0) {
+		dev_dbg(dev, "refusing to reconfigure leds: no 'realtek,led-control' in dtb\n");
+		return;
+	}
+
+	val = (led_mode << 15) | (led2_ctrl << 10) |
+	      (led1_ctrl << 5) | led0_ctrl;
+
+	ret = phy_write_paged(phydev, 0xd04, RTL8211F_LCR, val);
+	if (ret < 0)
+		dev_dbg(dev, "Failed to update the LED control register\n");
+}
+
+static int rtl8211f_config_aneg(struct phy_device *phydev)
+{
+	int ret;
+
+	rtl8211f_config_led(phydev);
+
+	ret = genphy_config_aneg(phydev);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int rtl8211c_config_init(struct phy_device *phydev)
 {
 	/* RTL8211C has an issue when operating in Gigabit slave mode */
@@ -341,6 +393,8 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 	struct device *dev = &phydev->mdio.dev;
 	u16 val_txdly, val_rxdly;
 	int ret;
+
+	rtl8211f_config_led(phydev);
 
 	ret = phy_modify_paged_changed(phydev, 0xa43, RTL8211F_PHYCR1,
 				       RTL8211F_ALDPS_PLL_OFF | RTL8211F_ALDPS_ENABLE | RTL8211F_ALDPS_XTAL_OFF,
@@ -923,6 +977,7 @@ static struct phy_driver realtek_drvs[] = {
 		PHY_ID_MATCH_EXACT(0x001cc916),
 		.name		= "RTL8211F Gigabit Ethernet",
 		.probe		= rtl821x_probe,
+		.config_aneg	= rtl8211f_config_aneg,
 		.config_init	= &rtl8211f_config_init,
 		.read_status	= rtlgen_read_status,
 		.config_intr	= &rtl8211f_config_intr,
